@@ -568,7 +568,10 @@
             <h2>Roteiro geral</h2>
             <p class="desc">22 dias, de Recife até Recife. Marque os dias concluídos conforme a viagem avança.</p>
           </div>
-          <button class="btn btn-outline no-print" id="btnPrintRoteiro" type="button">🖨️ Imprimir / salvar em PDF</button>
+          <div class="no-print" style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-outline" id="editModeBtn" type="button">✏️ Editar roteiro</button>
+            <button class="btn btn-outline" id="btnPrintRoteiro" type="button">🖨️ Imprimir / salvar em PDF</button>
+          </div>
         </div>
 
         <div class="filter-row no-print">
@@ -576,6 +579,8 @@
           <input type="date" id="filterData" title="Ir para uma data específica">
           <button class="btn btn-sm" id="btnLimparFiltro" type="button">Limpar filtros</button>
         </div>
+
+        <p class="no-print" id="editModeHint" style="display:none; font-size:12.5px; color:var(--text-muted); background:var(--surface-2); border-radius:8px; padding:8px 12px; margin-bottom:10px;">✏️ Modo de edição ativo — toque em qualquer texto do roteiro para editar, no ✕ para apagar uma linha, ou em "+ adicionar item" para criar uma nova. Tudo fica salvo neste aparelho.</p>
 
         <div id="itineraryList"><!-- 22 cartões de dia inseridos abaixo --></div>
       </section>
@@ -1067,7 +1072,19 @@
         <div class="card">
           <div class="card-row"><h3>🎪 Loveland Festival</h3><span class="tag tag-green">Comprado</span></div>
           <div class="kv"><span class="k">Datas</span><span class="v">08/08 e 09/08/2026</span></div>
-          <div class="kv"><span class="k">Cidade</span><span class="v">Amsterdã</span></div>
+          <div class="kv"><span class="k">Cidade</span><span class="v">Amsterdã (Sloterpark)</span></div>
+          <div class="kv"><span class="k">Estação de conexão</span><span class="v">Amsterdam Sloterdijk</span></div>
+          <h4>🚌 Como chegar</h4>
+          <ul>
+            <li><b>Ida econômica:</b> a pé até Roelof Hartplein → Tram 12 até Frederik Hendrikplantsoen → Ônibus 18 até Robert Fruinlaan.</li>
+            <li><b>Ida rápida:</b> Uber/Bolt direto do hotel até a Estação Sloterdijk (15-20 min, €15-25). Na estação, embarcar no shuttle oficial do festival ("Pendelbus", sinalização amarela).</li>
+            <li><b>Volta:</b> shuttle oficial dentro do Sloterpark até Sloterdijk (evita trânsito bloqueado e Uber de até €80). De Sloterdijk, trem comum ou Uber até o hotel.</li>
+          </ul>
+          <h4>🚫 O que pode e não pode levar</h4>
+          <ul>
+            <li><b>Permitido:</b> cigarros/tabaco para uso próprio (só nas pistas abertas, proibido em tendas cobertas), isqueiro comum, power bank, protetor solar em creme (embalagem pequena), chicletes/balas lacradas de fábrica.</li>
+            <li><b>Proibido (retido na revista, sem devolução):</b> qualquer entorpecente incluindo maconha e trufas (tolerância zero), comida e bebida, mochilas/bolsas maiores que uma folha A4, guarda-chuva, spray/aerossol.</li>
+          </ul>
           <h4>Checklist</h4>
           <ul class="checklist" data-group="loveland">
             <li class="check-item"><input type="checkbox" id="chk-lov-0" data-check="loveland-0"><label for="chk-lov-0">Ingresso de cada dia</label></li>
@@ -1075,9 +1092,9 @@
             <li class="check-item"><input type="checkbox" id="chk-lov-2" data-check="loveland-2"><label for="chk-lov-2">Rota de ida</label></li>
             <li class="check-item"><input type="checkbox" id="chk-lov-3" data-check="loveland-3"><label for="chk-lov-3">Rota de volta</label></li>
             <li class="check-item"><input type="checkbox" id="chk-lov-4" data-check="loveland-4"><label for="chk-lov-4">Previsão do tempo</label></li>
-            <li class="check-item"><input type="checkbox" id="chk-lov-5" data-check="loveland-5"><label for="chk-lov-5">Capa de chuva</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lov-5" data-check="loveland-5"><label for="chk-lov-5">Capa de chuva descartável (sem guarda-chuva)</label></li>
             <li class="check-item"><input type="checkbox" id="chk-lov-6" data-check="loveland-6"><label for="chk-lov-6">Power bank carregado</label></li>
-            <li class="check-item"><input type="checkbox" id="chk-lov-7" data-check="loveland-7"><label for="chk-lov-7">Água conforme regras do evento</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lov-7" data-check="loveland-7"><label for="chk-lov-7">Bolsa pequena (máx. tamanho A4)</label></li>
             <li class="check-item"><input type="checkbox" id="chk-lov-8" data-check="loveland-8"><label for="chk-lov-8">Horário de saída do hotel definido</label></li>
             <li class="check-item"><input type="checkbox" id="chk-lov-9" data-check="loveland-9"><label for="chk-lov-9">Valor separado para alimentação e bebidas</label></li>
           </ul>
@@ -1085,10 +1102,38 @@
         </div>
 
         <div class="card">
-          <div class="card-row"><h3>🏛️ Museu Anne Frank</h3><span class="confirm-badge">A confirmar</span></div>
+          <div class="card-row"><h3>🌿 Guia local — Amsterdã</h3></div>
+          <p style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">Cannabis em coffeeshops e trufas mágicas em smartshops são atividades legais e reguladas na Holanda.</p>
+          <h4>Coffeeshops por região</h4>
+          <ul>
+            <li><b>De Pijp (perto do hotel):</b> Club Media (Gerard Doustraat 85), Katsu (Eerste van der Helststraat 70), Program (Daniël Stalpertstraat 78).</li>
+            <li><b>Trajeto central / canais:</b> Superskunk (Prinsengracht 480), Get Down (Korte Leidsedwarsstraat 77).</li>
+            <li><b>Perto da Casa de Anne Frank (Jordaan):</b> La Tertulia (Prinsengracht 312).</li>
+          </ul>
+          <h4>Regras de ouro</h4>
+          <ul>
+            <li>Passaporte físico é exigido na entrada de qualquer coffeeshop.</li>
+            <li>Para sentar às mesas, é obrigatório comprar algo no balcão — nenhum coffeeshop vende álcool.</li>
+            <li>Proibido por lei fumar na rua em áreas centrais/turísticas — consumir dentro do estabelecimento ou em áreas afastadas de parques (Vondelpark), longe de famílias.</li>
+            <li>Evitar pre-rolls comerciais (costumam vir com tabaco); preferir a erva pura. Sativa de dia (energia), evitar Indica pura (dá sono).</li>
+            <li>MDMA/cristal/ecstasy são ilegais e não vendidos em coffeeshops — nunca comprar de traficantes de rua (risco de substância adulterada).</li>
+          </ul>
+          <h4>Trufas mágicas (psilocibina)</h4>
+          <p style="font-size:13.5px;">Venda 100% legal em smartshops. Recomendado: <b>Kokopelli</b> (Warmoesstraat 12). Consumir em jejum leve de 3-4h, em ambiente calmo (parque), para evitar náusea.</p>
+          <h4>Compras vintage</h4>
+          <ul>
+            <li><b>Waterlooplein Market:</b> seg-sáb, 09h30-18h00 (fechado domingo), próx. ao bairro Nieuwmarkt.</li>
+            <li><b>9 Straatjes (Jordaan):</b> Episode, Bij Ons Vintage.</li>
+            <li><b>Oud-West / Haarlemmerdijk:</b> Rumors Vintage & Design, Zipper.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>🏛️ Museu Anne Frank</h3><span class="confirm-badge">Conferir ingresso</span></div>
           <div class="kv"><span class="k">Cidade</span><span class="v">Amsterdã</span></div>
-          <div class="kv"><span class="k">Data</span><span class="editable-row" data-edit-field="annefrank-data" data-edit-default="A CONFIRMAR"></span></div>
-          <div class="alert-card alert-red"><span class="num">⚠️</span><span><b>Confirmar data e horário do ingresso.</b></span></div>
+          <div class="kv"><span class="k">Data e horário previstos</span><span class="v">07/08/2026, 19h45</span></div>
+          <div class="kv"><span class="k">Endereço</span><span class="v">Westermarkt 20</span></div>
+          <div class="alert-card alert-red"><span class="num">⚠️</span><span><b>Horário estrito de ingresso — confirmar se o bilhete já está comprado (venda online, costuma esgotar).</b></span></div>
         </div>
       </section>
 
@@ -1540,15 +1585,19 @@ const ITINERARY = [
   {date:"2026-08-05", region:"Monopoli", place:"Gallipoli", title:"Punta della Suina, beach club e Gallipoli", tags:["Puglia","Carro"],
     items:["Saída às 08h30 rumo à região de Gallipoli.","Punta della Suina e Bagno Marino Beach Club (confirmar endereço, reserva e horário).","Centro histórico de Gallipoli e jantar.","Se houver consumo de álcool, não dirigir."]},
   {date:"2026-08-06", region:"Amsterdã", place:"Monopoli → Bari → Amsterdã", title:"Devolução do carro e voo para Amsterdã", tags:["Voo","Carro"],
-    items:["Saída de Monopoli entre 11h15 e 11h30.","Devolução do carro até 13h00 (não deixar para as 14h00).","Seguir para o terminal — portão por volta de 14h30–14h40.","Voo Bari → Amsterdã, 15h20–19h50 (1 escala em Roma, troca de avião)."]},
-  {date:"2026-08-07", region:"Amsterdã", place:"Amsterdã", title:"Dia em Amsterdã", tags:["Cidade"], items:["Dia livre em Amsterdã."]},
-  {date:"2026-08-08", region:"Amsterdã", place:"Amsterdã", title:"Loveland Festival — Dia 1", tags:["Evento"], items:["Loveland Festival (ingresso já comprado). Ver checklist em Eventos."]},
-  {date:"2026-08-09", region:"Amsterdã", place:"Amsterdã", title:"Loveland Festival — Dia 2", tags:["Evento"], items:["Loveland Festival (ingresso já comprado). Ver checklist em Eventos."]},
-  {date:"2026-08-10", region:"Amsterdã", place:"Amsterdã", title:"Dia em Amsterdã", tags:["Cidade"], items:["Dia livre em Amsterdã."]},
-  {date:"2026-08-11", region:"Amsterdã", place:"Amsterdã", title:"Amsterdã — Museu Anne Frank", tags:["Cidade","Evento"],
-    items:["Dia livre em Amsterdã.","Museu Anne Frank — data e horário do ingresso A CONFIRMAR."]},
+    items:["Saída de Monopoli entre 11h15 e 11h30.","Devolução do carro até 13h00 (não deixar para as 14h00).","Seguir para o terminal — portão por volta de 14h30–14h40.","Voo Bari → Amsterdã, 15h20–19h50 (1 escala em Roma, troca de avião).","Check-in no hotel: 20h00 (The Muse Amsterdam).","21h00 — Coffeeshop Club Media (Gerard Doustraat 85), fumo inicial da viagem.","21h30 — Jantar de abertura na Ferdinand Bolstraat: Geflipt Burgers ou Pizzeria Renato's."]},
+  {date:"2026-08-07", region:"Amsterdã", place:"Amsterdã", title:"Museus, vintage e Anne Frank", tags:["Cidade","Cultura","Evento"],
+    items:["10h00 — Waterlooplein Market: garimpo de jaquetas e casacos vintage (aberto seg–sáb, 09h30–18h00).","12h00 — Almoço leve e parada no Program Coffeeshop (Daniël Stalpertstraat 78).","13h30 — Heineken Experience (Stadhouderskade 78), com 2 chopps inclusos.","15h30 — Compras na Leidsestraat e nas 9 Straatjes (Episode, Bij Ons Vintage).","18h00 — Torta de maçã holandesa no café Winkel 43 (Jordaan).","19h45 — Museu Anne Frank (Westermarkt 20) — horário estrito, chegar no horário do ingresso.","22h00 — Jantar num bruin café à beira do canal, como o Café 't Smalle (Jordaan)."]},
+  {date:"2026-08-08", region:"Amsterdã", place:"Amsterdã", title:"Loveland Festival — Dia 1", tags:["Evento"],
+    items:["10h00 — Brunch proteico no Omelegg de Pijp (Ferdinand Bolstraat 143).","11h30 — Katsu Coffeeshop e relaxar no Vondelpark antes do festival.","13h00 — Voltar ao hotel para pegar óculos de sol, power bank e corta-vento.","13h30 — Uber/Bolt até a Estação Amsterdam Sloterdijk (≈15-20 min, €15-25) e shuttle oficial do Loveland.","14h00 às 23h00 — Loveland Festival, primeiro dia.","23h00 — Shuttle de volta até Sloterdijk (evita trânsito e Uber caro) e transporte até o hotel.","Ver rota completa, o que pode/não pode levar e checklist em Eventos."]},
+  {date:"2026-08-09", region:"Amsterdã", place:"Amsterdã", title:"Loveland Festival — Dia 2", tags:["Evento"],
+    items:["10h30 — Café da manhã reforçado (Baker & Moore ou casa de panquecas), hidratação pesada.","12h00 — Descanso nos arredores do hotel.","13h30 — Uber/Bolt até Sloterdijk (atenção: portões abrem cerca de 1h mais tarde que no sábado).","14h30 às 23h00 — Loveland Festival, segundo dia.","23h30 — Opcional: after em clubs de techno (RADION ou Shelter) — conferir line-up no Resident Advisor."]},
+  {date:"2026-08-10", region:"Amsterdã", place:"Amsterdã", title:"NDSM, arte urbana e Pllek", tags:["Cidade","Cultura"],
+    items:["11h00 — Garimpo em Haarlemmerdijk (Rumors Vintage & Design, Zipper).","13h30 — Balsa pública gratuita nos fundos da Centraal Station até o NDSM-Werf.","14h00 — STRAAT Museum — maior museu de graffiti e arte de rua do mundo.","16h30 — Sunset no restaurante de contêineres Pllek, à beira do rio.","22h00 — Clubbing noturno (Shelter no Norte ou RAUM no circuito industrial)."]},
+  {date:"2026-08-11", region:"Amsterdã", place:"Amsterdã", title:"Trufas mágicas e Foodhallen", tags:["Cidade"],
+    items:["11h30 — Kokopelli (Warmoesstraat 12): escolha orientada de trufas mágicas (psilocibina — venda legal em smartshops na Holanda).","13h00 — Jejum leve de 3-4h e experiência de 4-5h numa área tranquila do Vondelpark ou Rembrandtpark.","18h00 — Jantar de encerramento no Foodhallen, dentro do De Hallen (bairro Oud-West): burgers, tacos, baos e bitterballen."]},
   {date:"2026-08-12", region:"Madrid", place:"Amsterdã → Madrid", title:"Voo para Madrid", tags:["Voo"],
-    items:["Saída recomendada do hotel às 08h00.","Meta de chegada ao aeroporto: 08h45–09h00.","Voo Amsterdã → Madrid, 11h00–13h40.","Hospedagem em Madrid: Hostal Ballesta."]},
+    items:["Manhã — últimas compras em De Pijp e no Albert Heijn (Stroopwafels, chocolates Tony's Chocolonely).","Saída recomendada do hotel às 08h00.","Meta de chegada ao aeroporto: 08h45–09h00.","Voo Amsterdã → Madrid, 11h00–13h40.","Hospedagem em Madrid: Hostal Ballesta."]},
   {date:"2026-08-13", region:"Recife", place:"Madrid → Recife", title:"Volta para casa", tags:["Voo"],
     items:["Chegar ao aeroporto com 3 horas de antecedência.","Voo Madrid → Recife (Iberia IB0139, via Voe Rotas).","Horário: saída 12h15 de Madrid, chegada 15h40 em Recife."]}
 ];
@@ -1596,9 +1645,10 @@ const KEY_MOMENTS = [
 /* ---------- B. ESTADO ---------- */
 let STATE = null;
 let STORAGE_OK = true;
+let EDIT_MODE = false;
 
 function defaultState(){
-  return { theme:"light", checklists:{}, itineraryDone:{}, expenses:[], exchangeRate:"", notes:{}, editableFields:{} };
+  return { theme:"light", checklists:{}, itineraryDone:{}, expenses:[], exchangeRate:"", notes:{}, editableFields:{}, itineraryEdits:{} };
 }
 function loadState(){
   try{
@@ -1612,6 +1662,7 @@ function loadState(){
     STATE.exchangeRate = parsed.exchangeRate || "";
     STATE.notes = parsed.notes || {};
     STATE.editableFields = parsed.editableFields || {};
+    STATE.itineraryEdits = parsed.itineraryEdits || {};
     STORAGE_OK = true;
   }catch(e){
     STATE = defaultState();
@@ -1712,10 +1763,25 @@ function renderRouteStrip(){
   });
 }
 
+function getEffectiveDay(day){
+  const edit = STATE.itineraryEdits[day.date];
+  if(!edit) return { title:day.title, items:day.items.slice(), edited:false };
+  return {
+    title: (typeof edit.title === "string") ? edit.title : day.title,
+    items: Array.isArray(edit.items) ? edit.items.slice() : day.items.slice(),
+    edited: true
+  };
+}
+function saveItineraryEdit(date, patch){
+  const cur = STATE.itineraryEdits[date] || {};
+  STATE.itineraryEdits[date] = Object.assign({}, cur, patch);
+  saveState();
+}
 function renderItinerary(){
   const list = $("#itineraryList"); if(!list) return;
   list.innerHTML = "";
   ITINERARY.forEach(function(day){
+    const eff = getEffectiveDay(day);
     const d = new Date(day.date+"T12:00:00");
     const dayNum = d.getDate();
     let weekday = d.toLocaleDateString("pt-BR", {weekday:"short"});
@@ -1728,16 +1794,34 @@ function renderItinerary(){
       const cls = t==="Voo" ? "tag-gold" : (t==="Puglia" ? "tag-green" : "");
       return '<span class="tag '+cls+'">'+t+'</span>';
     }).join("");
-    const itemsHtml = day.items.map(function(i){ return '<li style="font-size:13.5px;">'+i+'</li>'; }).join("");
+    const itemsHtml = eff.items.map(function(i, idx){
+      if(EDIT_MODE){
+        return '<li style="font-size:13.5px; display:flex; align-items:flex-start; gap:6px;">'+
+          '<span class="item-editable" contenteditable="true" data-date="'+day.date+'" data-idx="'+idx+'" style="flex:1; outline:none; border-bottom:1px dashed var(--border-strong);">'+escapeHtml(i)+'</span>'+
+          '<button type="button" class="item-del-btn" data-date="'+day.date+'" data-idx="'+idx+'" title="Apagar item" style="flex-shrink:0; border:none; background:none; color:#B33B3B; cursor:pointer; font-size:15px; line-height:1; padding:2px 4px;">✕</button>'+
+        '</li>';
+      }
+      return '<li style="font-size:13.5px;">'+i+'</li>';
+    }).join("");
+    const titleHtml = EDIT_MODE
+      ? '<h3 class="title-editable" contenteditable="true" data-date="'+day.date+'" style="margin-bottom:2px; outline:none; border-bottom:1px dashed var(--border-strong);">'+escapeHtml(eff.title)+'</h3>'
+      : '<h3 style="margin-bottom:2px;">'+eff.title+'</h3>';
+    const addBtnHtml = EDIT_MODE
+      ? '<button type="button" class="item-add-btn" data-date="'+day.date+'" style="margin-top:6px; font-size:12px; border:1px dashed var(--border-strong); background:none; border-radius:8px; padding:4px 10px; cursor:pointer; color:var(--text-muted);">+ adicionar item</button>'
+      : '';
+    const resetBtnHtml = (EDIT_MODE && eff.edited)
+      ? '<button type="button" class="day-reset-btn" data-date="'+day.date+'" style="margin-top:6px; margin-left:6px; font-size:12px; border:1px dashed var(--border-strong); background:none; border-radius:8px; padding:4px 10px; cursor:pointer; color:var(--text-muted);">↺ restaurar original</button>'
+      : '';
     card.innerHTML =
       '<div class="day-badge"><div class="num">'+String(dayNum).padStart(2,"0")+'</div><div class="wd">'+weekday+'</div></div>'+
       '<div style="flex:1; min-width:0;">'+
-        '<div class="card-row"><div><div style="margin-bottom:4px;">'+tagsHtml+'</div>'+
-        '<h3 style="margin-bottom:2px;">'+day.title+'</h3>'+
+        '<div class="card-row"><div><div style="margin-bottom:4px;">'+tagsHtml+(eff.edited?' <span class="tag" style="background:var(--gold); color:#3a2c00;">editado</span>':'')+'</div>'+
+        titleHtml+
         '<p style="font-size:12.5px; color:var(--text-muted);">'+formatDateBR(day.date)+' · '+day.place+'</p></div>'+
         '<label class="day-check" style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted);">'+
         '<input type="checkbox" data-day-check="'+day.date+'" '+(done?"checked":"")+'> concluído</label></div>'+
         '<ul style="margin-top:6px;">'+itemsHtml+'</ul>'+
+        '<div>'+addBtnHtml+resetBtnHtml+'</div>'+
       '</div>';
     list.appendChild(card);
   });
@@ -1750,6 +1834,50 @@ function renderItinerary(){
     });
   });
 
+  if(EDIT_MODE){
+    $all(".item-editable").forEach(function(el){
+      el.addEventListener("blur", function(){
+        const date = el.dataset.date, idx = Number(el.dataset.idx);
+        const day = ITINERARY.find(function(d){ return d.date===date; });
+        const eff = getEffectiveDay(day);
+        eff.items[idx] = el.textContent;
+        saveItineraryEdit(date, {items: eff.items});
+      });
+    });
+    $all(".title-editable").forEach(function(el){
+      el.addEventListener("blur", function(){
+        saveItineraryEdit(el.dataset.date, {title: el.textContent});
+      });
+    });
+    $all(".item-del-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        const date = btn.dataset.date, idx = Number(btn.dataset.idx);
+        const day = ITINERARY.find(function(d){ return d.date===date; });
+        const eff = getEffectiveDay(day);
+        eff.items.splice(idx, 1);
+        saveItineraryEdit(date, {items: eff.items, title: eff.title});
+        renderItinerary();
+      });
+    });
+    $all(".item-add-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        const date = btn.dataset.date;
+        const day = ITINERARY.find(function(d){ return d.date===date; });
+        const eff = getEffectiveDay(day);
+        eff.items.push("Novo item — toque para editar");
+        saveItineraryEdit(date, {items: eff.items, title: eff.title});
+        renderItinerary();
+      });
+    });
+    $all(".day-reset-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        delete STATE.itineraryEdits[btn.dataset.date];
+        saveState();
+        renderItinerary();
+      });
+    });
+  }
+
   // popula filtro de cidade
   const sel = $("#filterCidade");
   if(sel){
@@ -1758,6 +1886,15 @@ function renderItinerary(){
       if(!seen[d.region]){ seen[d.region]=true; const o=document.createElement("option"); o.value=d.region; o.textContent=d.region; sel.appendChild(o); }
     });
   }
+}
+function toggleEditMode(){
+  EDIT_MODE = !EDIT_MODE;
+  const btn = $("#editModeBtn");
+  if(btn){ btn.textContent = EDIT_MODE ? "✅ Concluir edição" : "✏️ Editar roteiro"; btn.classList.toggle("btn-gold", EDIT_MODE); }
+  const hint = $("#editModeHint");
+  if(hint){ hint.style.display = EDIT_MODE ? "block" : "none"; }
+  renderItinerary();
+  if(EDIT_MODE) showToast("Modo de edição ativo: toque no texto para editar, ✕ para apagar.");
 }
 
 function renderCityNotes(){
@@ -2160,6 +2297,8 @@ document.addEventListener("DOMContentLoaded", function(){
     window.print();
   });
   window.addEventListener("afterprint", function(){ document.body.classList.remove("printing-roteiro"); });
+
+  $("#editModeBtn").addEventListener("click", toggleEditMode);
 
   $("#btnExportJson").addEventListener("click", exportJson);
   $("#btnImportJsonTrigger").addEventListener("click", function(){ $("#btnImportJson").click(); });
