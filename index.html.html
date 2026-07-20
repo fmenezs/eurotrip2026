@@ -1,0 +1,2412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="EuroTrip 2026">
+<meta name="theme-color" content="#16294A">
+<title>EUROTRIP 2026 — Fernando & Letícia</title>
+<!--
+  ===========================================================================
+  EUROTRIP 2026 — Guia de viagem offline
+  Arquivo único (HTML + CSS + JS). Sem dependências externas, sem internet.
+  Estrutura deste arquivo:
+    1. <style>  — variáveis de tema, layout, componentes, impressão
+    2. <body>   — header, navegação, 12 seções de conteúdo, modais
+    3. <script> — dados fixos, estado (localStorage), renderização e eventos
+  Para editar textos de roteiro/voos/hospedagens: procure a seção correspondente
+  no HTML (marcada com comentários "SEÇÃO: ..."). Para editar comportamento
+  (checklists, despesas, exportação etc.), veja os blocos comentados no <script>.
+  ===========================================================================
+-->
+<style>
+  /* =========================================================
+     1. TOKENS DE DESIGN — cores, tipografia, espaçamento
+     ========================================================= */
+  :root{
+    --radius: 14px;
+    --radius-sm: 9px;
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --nav-w: 232px;
+    --header-h: 64px;
+    --shadow: 0 4px 16px rgba(20, 30, 55, 0.08);
+    --shadow-sm: 0 2px 8px rgba(20, 30, 55, 0.06);
+    /* "Chrome" = elementos de marca com fundo navy-marinho fixo (sidebar, badges, botões navy,
+       cartão de capa). Não mudam entre tema claro/escuro, para manter a identidade visual. */
+    --chrome-bg: #16294A;
+    --chrome-bg-deep: #0D1B33;
+    --chrome-text: #F7F4EC;
+  }
+  :root[data-theme="light"]{
+    --bg: #F5F1E8;
+    --bg-soft: #EFE9DA;
+    --surface: #FFFFFF;
+    --surface-2: #FBF9F4;
+    --heading: #16294A;
+    --green: #2E5D4B;
+    --green-soft: #E3EEE6;
+    --gold: #A9812E;
+    --gold-soft: #F1E6C8;
+    --beige: #E6DBC0;
+    --text: #202737;
+    --text-muted: #5B6373;
+    --text-faint: #8991A0;
+    --border: #E2DBC8;
+    --border-strong: #CFC6AC;
+    --danger-bg: #FBEAEA;
+    --danger-text: #8F2C2C;
+    --danger-border: #E3B7B7;
+    --warn-bg: #FBF3D9;
+    --warn-text: #7A5C10;
+    --warn-border: #E5CE8B;
+    --chip-bg: #EEF2E9;
+    --overlay: rgba(13, 20, 35, 0.55);
+  }
+  :root[data-theme="dark"]{
+    --bg: #0F1622;
+    --bg-soft: #141D2C;
+    --surface: #182234;
+    --surface-2: #1D283C;
+    --heading: #A9BEE0;
+    --green: #6FBE99;
+    --green-soft: #16281F;
+    --gold: #D9B85C;
+    --gold-soft: #2B2411;
+    --beige: #2A2A22;
+    --text: #E7EAF2;
+    --text-muted: #A6AFC2;
+    --text-faint: #737C90;
+    --border: #2A3448;
+    --border-strong: #37435C;
+    --danger-bg: #2C1717;
+    --danger-text: #E8A2A2;
+    --danger-border: #4A2626;
+    --warn-bg: #2A2412;
+    --warn-text: #E4C877;
+    --warn-border: #4A3F1E;
+    --chip-bg: #1B2A20;
+    --overlay: rgba(0,0,0,0.65);
+  }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body{ margin:0; padding:0; }
+  html{ background: var(--bg); overscroll-behavior-y: none; }
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15.5px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
+  }
+  button, .btn, .nav-btn, .nav-btn-m{ -webkit-appearance:none; appearance:none; touch-action: manipulation; }
+  h1,h2,h3,h4{ font-family: var(--font-display); font-weight: 700; margin: 0 0 6px; color: var(--heading); }
+  /* Nota: --heading já é redefinido dentro de [data-theme="dark"] (tom claro sobre fundo escuro),
+     então os títulos herdam contraste correto automaticamente — não sobrescrever aqui. */
+  p{ margin: 0 0 8px; }
+  ul{ margin: 6px 0; padding-left: 20px; }
+  li{ margin-bottom: 4px; }
+  a{ color: var(--green); }
+  button{ font-family: var(--font-body); cursor:pointer; }
+  input, select, textarea{ font-family: var(--font-body); font-size: 15px; }
+  :focus-visible{ outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* =========================================================
+     LAYOUT GERAL
+     ========================================================= */
+  .app-shell{ display:flex; min-height:100vh; }
+
+  /* --- Navegação lateral (desktop) --- */
+  .app-nav{
+    width: var(--nav-w);
+    flex-shrink:0;
+    background: var(--chrome-bg);
+    color: var(--chrome-text);
+    display:flex;
+    flex-direction:column;
+    position: sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+  }
+  .app-nav .brand{
+    padding: 22px 18px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+  }
+  .app-nav .brand .brand-title{
+    font-family: var(--font-display);
+    font-size: 19px;
+    letter-spacing: 0.5px;
+    color: #F4EFE0;
+    margin:0;
+  }
+  .app-nav .brand .brand-sub{
+    font-size: 12.5px;
+    color: #C9B776;
+    margin-top:2px;
+  }
+  .nav-list{ list-style:none; margin:10px 0; padding: 6px 10px; flex:1; }
+  .nav-list li{ margin-bottom:2px; }
+  .nav-btn{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:transparent;
+    border:none;
+    color: #D9E0EE;
+    padding: 11px 12px;
+    border-radius: 10px;
+    font-size: 14.5px;
+    text-align:left;
+    transition: background .15s ease, color .15s ease;
+  }
+  .nav-btn .ic{ font-size:16px; width:20px; text-align:center; }
+  .nav-btn:hover{ background: rgba(255,255,255,0.08); }
+  .nav-btn.active{ background: var(--gold); color: #2A2004; font-weight:700; }
+  .nav-foot{
+    padding: 12px 16px 18px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    font-size: 12px;
+    color: #B7C0D6;
+  }
+  .theme-toggle{
+    display:flex; align-items:center; gap:8px;
+    background: rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.15);
+    color:#EFEFEF; border-radius:10px; padding:9px 11px;
+    width:100%; margin-bottom:10px; font-size:13.5px;
+  }
+  .theme-toggle:hover{ background: rgba(255,255,255,0.14); }
+
+  /* --- Header superior --- */
+  .app-main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .app-header{
+    position: sticky; top:0; z-index:20;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    min-height: var(--header-h);
+  }
+  .search-wrap{ position:relative; flex:1; min-width:180px; max-width:360px; }
+  .search-input{
+    width:100%; padding:9px 12px 9px 34px; border-radius: 999px;
+    border:1px solid var(--border-strong); background: var(--surface-2); color:var(--text);
+  }
+  .search-icon{ position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:13px; opacity:.6; pointer-events:none; }
+  .search-results{
+    position:absolute; top:calc(100% + 6px); left:0; right:0;
+    background:var(--surface); border:1px solid var(--border-strong); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow); max-height: 320px; overflow-y:auto; z-index:30; display:none;
+  }
+  .search-results.show{ display:block; }
+  .search-result-item{
+    display:block; width:100%; text-align:left; background:none; border:none;
+    padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text); font-size:13.5px;
+  }
+  .search-result-item:last-child{ border-bottom:none; }
+  .search-result-item:hover{ background: var(--bg-soft); }
+  .search-result-item b{ color: var(--green); display:block; font-size:11px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; }
+  .search-empty{ padding:12px; font-size:13px; color:var(--text-muted); }
+
+  .header-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-left:auto; }
+  .chip{
+    display:inline-flex; align-items:center; gap:6px;
+    background: var(--green-soft); color: var(--green); border:1px solid var(--green);
+    padding: 6px 12px; border-radius:999px; font-size:12.5px; font-weight:700; white-space:nowrap;
+  }
+  .btn{
+    display:inline-flex; align-items:center; gap:6px;
+    background: var(--surface-2); border:1px solid var(--border-strong); color:var(--text);
+    padding:8px 13px; border-radius:10px; font-size:13.5px; font-weight:600; transition: transform .1s ease, background .15s;
+  }
+  .btn:hover{ background: var(--bg-soft); }
+  .btn:active{ transform: scale(0.97); }
+  .btn-gold{ background: var(--gold); border-color: var(--gold); color:#2A2004; }
+  .btn-gold:hover{ filter:brightness(1.05); }
+  .btn-navy{ background:var(--chrome-bg); border-color:var(--chrome-bg); color:var(--chrome-text); }
+  .btn-outline{ background:transparent; }
+  .btn-danger{ background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger-text); }
+  .btn-sm{ padding:5px 10px; font-size:12px; border-radius:8px; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .offline-badge{
+    display:none; align-items:center; gap:6px; font-size:12px; color: var(--warn-text);
+    background: var(--warn-bg); border:1px solid var(--warn-border); padding:5px 10px; border-radius:999px;
+  }
+  .offline-badge.show{ display:inline-flex; }
+
+  /* --- Barra inferior mobile --- */
+  .app-nav-mobile{ display:none; }
+
+  /* --- Conteúdo --- */
+  .app-content{ padding: 18px 22px 90px; max-width: 980px; width:100%; margin:0 auto; }
+  .view{ display:none; animation: fade .18s ease; }
+  .view.active{ display:block; }
+  @keyframes fade{ from{opacity:0} to{opacity:1} }
+
+  .section-head{ margin-bottom:16px; }
+  .section-head .eyebrow{ color:var(--gold); font-size:12px; letter-spacing:1.2px; text-transform:uppercase; font-weight:700; }
+  .section-head h2{ font-size: 26px; margin-top:2px; }
+  .section-head .desc{ color:var(--text-muted); font-size:14px; max-width:640px; }
+
+  .card{
+    background: var(--surface); border:1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 18px; margin-bottom:14px; box-shadow: var(--shadow-sm);
+  }
+  .card h3{ font-size:17px; }
+  .card h4{ font-size:14.5px; margin-top:10px; }
+  .card-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+  .grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+  .grid-3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+  @media (max-width: 720px){ .grid-2, .grid-3{ grid-template-columns: 1fr; } }
+
+  .tag{
+    display:inline-flex; align-items:center; font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.4px; padding:3px 9px; border-radius:999px; background: var(--beige); color: var(--heading);
+    border:1px solid var(--border-strong); margin-right:6px;
+  }
+  .tag-green{ background: var(--green-soft); color: var(--green); border-color: var(--green); }
+  .tag-gold{ background: var(--gold-soft); color: var(--gold); border-color: var(--gold); }
+
+  .kv{ display:flex; flex-wrap:wrap; gap:4px 8px; font-size:14px; margin: 4px 0; }
+  .kv .k{ color:var(--text-muted); min-width:120px; }
+  .kv .v{ font-weight:600; }
+
+  .confirm-badge{
+    display:inline-flex; align-items:center; gap:4px; background: var(--warn-bg); color: var(--warn-text);
+    border:1px solid var(--warn-border); font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:999px;
+  }
+
+  .alert-card{ border-radius: var(--radius); padding:12px 14px; margin-bottom:10px; border:1px solid; font-size:14px; display:flex; gap:10px; align-items:flex-start; }
+  .alert-red{ background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger-text); }
+  .alert-yellow{ background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+  .alert-card .num{ font-weight:800; font-family: var(--font-display); font-size:15px; flex-shrink:0; }
+
+  /* --- Timeline (voo, trem) --- */
+  .timeline{ list-style:none; margin:10px 0; padding:0; border-left:2px dashed var(--border-strong); margin-left:6px; }
+  .timeline li{ position:relative; padding: 4px 0 4px 20px; font-size:14px; }
+  .timeline li::before{ content:''; position:absolute; left:-6px; top:9px; width:9px; height:9px; border-radius:50%; background: var(--green); border:2px solid var(--surface); }
+  .timeline li b{ color:var(--heading); }
+
+  /* --- Boarding-pass style para voos --- */
+  .pass{
+    background: var(--surface); border:1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow-sm); margin-bottom:14px; overflow:hidden;
+  }
+  .pass-top{ padding:14px 18px; background: linear-gradient(135deg, var(--chrome-bg), var(--chrome-bg-deep)); color: var(--chrome-text); }
+  .pass-route{ display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-size:19px; font-weight:700; }
+  .pass-route .plane{ font-size:16px; opacity:.85; }
+  .pass-meta{ font-size:12px; opacity:.85; margin-top:4px; }
+  .pass-perf{ height:0; border-top:2px dashed var(--border-strong); position:relative; }
+  .pass-body{ padding:14px 18px; }
+
+  /* --- Checklists --- */
+  .checklist{ list-style:none; margin:8px 0; padding:0; }
+  .checklist li{ margin-bottom:0; }
+  .check-item{ display:flex; align-items:flex-start; gap:9px; padding:7px 4px; border-bottom:1px solid var(--border); font-size:14.5px; }
+  .check-item:last-child{ border-bottom:none; }
+  .check-item input[type=checkbox]{ margin-top:3px; width:17px; height:17px; accent-color: var(--green); flex-shrink:0; }
+  .check-item.checked label{ text-decoration: line-through; color: var(--text-faint); }
+  .progress-wrap{ display:flex; align-items:center; gap:8px; margin: 6px 0 10px; }
+  .progress-bar{ flex:1; height:7px; border-radius:999px; background: var(--bg-soft); overflow:hidden; }
+  .progress-bar > div{ height:100%; background: var(--green); transition: width .2s ease; }
+  .progress-text{ font-size:12px; color:var(--text-muted); white-space:nowrap; font-weight:600; }
+
+  /* --- Campos editáveis --- */
+  .editable-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .editable-val{ font-weight:600; }
+  .editable-val.is-tbd{ color: var(--warn-text); font-style:italic; font-weight:700; }
+  .edit-btn, .copy-btn, .map-btn{
+    border:none; background: var(--chip-bg); color:var(--green); font-size:11.5px; padding:3px 8px;
+    border-radius:7px; font-weight:700;
+  }
+  .edit-btn:hover, .copy-btn:hover, .map-btn:hover{ filter:brightness(0.95); }
+  .edit-input{ padding:5px 8px; border-radius:7px; border:1px solid var(--border-strong); background:var(--surface-2); color:var(--text); font-size:13.5px; min-width:160px; }
+  textarea.edit-input, textarea.note-area{ width:100%; min-height:70px; resize:vertical; }
+
+  /* --- Notas --- */
+  .note-area{ width:100%; padding:10px 12px; border-radius: var(--radius-sm); border:1px solid var(--border-strong); background: var(--surface-2); color:var(--text); min-height:110px; }
+  .note-save-hint{ font-size:11.5px; color: var(--text-faint); margin-top:4px; }
+
+  /* --- Itinerário --- */
+  .day-card{ display:flex; gap:14px; }
+  .day-badge{
+    flex-shrink:0; width:64px; text-align:center; background: var(--chrome-bg); color:var(--chrome-text);
+    border-radius:12px; padding:8px 4px; height:fit-content;
+  }
+  .day-badge .num{ font-family: var(--font-display); font-size:22px; line-height:1; }
+  .day-badge .wd{ font-size:10.5px; text-transform:uppercase; opacity:.85; letter-spacing:.5px; margin-top:2px;}
+  .day-card.done{ opacity:.6; }
+  .day-check{ margin-left:auto; }
+
+  /* --- Formulário de despesas --- */
+  .exp-form{ display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; }
+  .exp-form .full{ grid-column: 1 / -1; }
+  @media (max-width: 720px){ .exp-form{ grid-template-columns: 1fr 1fr; } }
+  .field{ display:flex; flex-direction:column; gap:4px; }
+  .field label{ font-size:11.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
+  .field input, .field select{ padding:8px 10px; border-radius:9px; border:1px solid var(--border-strong); background:var(--surface-2); color:var(--text); }
+
+  table.exp-table{ width:100%; border-collapse:collapse; font-size:13.5px; margin-top:10px; }
+  table.exp-table th, table.exp-table td{ padding:8px 7px; border-bottom:1px solid var(--border); text-align:left; }
+  table.exp-table th{ font-size:11px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.3px; }
+  table.exp-table tr:last-child td{ border-bottom:none; }
+  .exp-table-wrap{ overflow-x:auto; }
+
+  .summary-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:6px; }
+  @media (max-width: 820px){ .summary-grid{ grid-template-columns: repeat(2, 1fr); } }
+  .summary-box{ background: var(--surface-2); border:1px solid var(--border); border-radius: var(--radius-sm); padding:12px; }
+  .summary-box .lbl{ font-size:11.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.3px; font-weight:700; }
+  .summary-box .val{ font-family: var(--font-display); font-size:21px; color:var(--heading); margin-top:2px; }
+  .bar-row{ display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:6px; }
+  .bar-row .lbl{ width:150px; flex-shrink:0; color:var(--text-muted); }
+  .bar-row .track{ flex:1; height:8px; border-radius:999px; background:var(--bg-soft); overflow:hidden; }
+  .bar-row .track > div{ height:100%; background: var(--gold); }
+  .bar-row .amt{ width:70px; text-align:right; font-weight:700; flex-shrink:0; }
+
+  /* --- Filtros --- */
+  .filter-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:center; }
+  .filter-row select, .filter-row input[type=date]{ padding:8px 10px; border-radius:9px; border:1px solid var(--border-strong); background:var(--surface-2); color:var(--text); font-size:13.5px; }
+
+  /* --- Modais --- */
+  .modal-overlay{ position:fixed; inset:0; background: var(--overlay); display:none; align-items:center; justify-content:center; z-index:100; padding:16px; }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{ background: var(--surface); border-radius: var(--radius); max-width:420px; width:100%; padding:20px; box-shadow: var(--shadow); }
+  .modal-box h3{ margin-bottom:8px; }
+  .modal-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+  .toast{
+    position:fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); background: var(--chrome-bg); color:var(--chrome-text);
+    padding:11px 18px; border-radius:999px; font-size:13.5px; box-shadow: var(--shadow); z-index:200; opacity:0; pointer-events:none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(-6px); }
+
+  .highlight-flash{ animation: flash 1.6s ease; }
+  @keyframes flash{ 0%{ box-shadow: 0 0 0 3px var(--gold);} 100%{ box-shadow: none; } }
+
+  .empty-hint{ color: var(--text-faint); font-size:13.5px; font-style:italic; padding:10px 0; }
+
+  /* --- Rota resumida (elemento assinatura) --- */
+  .route-strip{ overflow-x:auto; padding: 10px 2px 16px; }
+  .route-track{ display:flex; align-items:center; min-width:640px; }
+  .route-stop{ display:flex; flex-direction:column; align-items:center; flex-shrink:0; width:92px; text-align:center; }
+  .route-dot{ width:13px; height:13px; border-radius:50%; background: var(--gold); border:2px solid var(--surface); box-shadow:0 0 0 2px var(--gold); }
+  .route-stop .rlabel{ font-size:11.5px; margin-top:6px; font-weight:700; color:var(--heading); }
+  .route-line{ flex:1; height:2px; background: repeating-linear-gradient(90deg, var(--border-strong) 0 6px, transparent 6px 11px); position:relative; min-width:20px; }
+  .route-line .plane-ic{ position:absolute; top:-9px; left:50%; transform:translateX(-50%); font-size:13px; }
+
+  /* --- Rodapé de impressão --- */
+  .print-only{ display:none; }
+
+  @media print{
+    .app-nav, .app-nav-mobile, .app-header, .no-print, .fab-group{ display:none !important; }
+    .app-shell{ display:block; }
+    .app-content{ max-width:100%; padding:0; }
+    body{ background:#fff; color:#000; }
+    .view{ display:none !important; }
+    body.printing-roteiro .view#sec-roteiro{ display:block !important; }
+    .card{ box-shadow:none; border:1px solid #999; break-inside: avoid; }
+    .print-only{ display:block; }
+  }
+
+  /* =========================================================
+     RESPONSIVO — celular
+     ========================================================= */
+  @media (max-width: 880px){
+    .app-nav{ display:none; }
+    .app-content{ padding: 14px 14px calc(96px + env(safe-area-inset-bottom)); }
+    .app-header{ padding:8px 12px; }
+    .app-nav-mobile{
+      display:flex; position:fixed; bottom:0; left:0; right:0; z-index:40;
+      background: var(--chrome-bg); overflow-x:auto; padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+      gap:2px;
+      box-shadow: 0 -3px 12px rgba(0,0,0,.15);
+    }
+    .nav-btn-m{
+      display:flex; flex-direction:column; align-items:center; gap:2px; flex-shrink:0;
+      background:none; border:none; color:#C9D2E6; padding:7px 11px; border-radius:10px; font-size:10px; min-width:62px;
+    }
+    .nav-btn-m .ic{ font-size:18px; }
+    .nav-btn-m.active{ color: var(--gold); font-weight:700; }
+    .exp-form{ grid-template-columns: 1fr 1fr; }
+    .grid-2{ grid-template-columns: 1fr; }
+    .toast{ bottom: calc(76px + env(safe-area-inset-bottom)); }
+    /* iOS aplica zoom automático em campos com fonte < 16px ao focar — forçamos 16px no celular */
+    input, select, textarea, .edit-input{ font-size:16px !important; }
+  }
+</style>
+</head>
+<body>
+<!-- =========================================================
+     TELA DE SENHA (protege os dados quando o site fica público)
+     ========================================================= -->
+<div id="lockScreen" style="position:fixed;inset:0;z-index:9999;background:#F5F1E8;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:system-ui,-apple-system,sans-serif;">
+  <div style="font-size:42px;margin-bottom:10px;">🔒</div>
+  <h2 style="font-family:Georgia,'Iowan Old Style',serif;margin:0 0 4px;color:#16294A;font-size:22px;">EUROTRIP 2026</h2>
+  <p style="margin:0 0 18px;color:#6b6456;font-size:14px;">Digite a senha para abrir o guia</p>
+  <input id="lockPassword" type="password" placeholder="Senha" autocomplete="off"
+    style="padding:12px 16px;border-radius:10px;border:1px solid #cfc6ab;font-size:16px;width:230px;text-align:center;margin-bottom:12px;outline:none;">
+  <br>
+  <button id="lockSubmit" type="button"
+    style="padding:11px 30px;border-radius:999px;border:none;background:#16294A;color:#F7F4EC;font-size:15px;font-weight:600;cursor:pointer;">Entrar</button>
+  <p id="lockError" style="color:#B33B3B;font-size:13px;margin-top:12px;display:none;">Senha incorreta — tenta de novo.</p>
+</div>
+<script>
+(function(){
+  var PASS = "eurotrip2026"; // <-- troque aqui pela senha que vocês quiserem usar
+  var KEY = "eurotrip2026_unlocked";
+  var screenEl = document.getElementById('lockScreen');
+  try{
+    if(localStorage.getItem(KEY) === "1"){ screenEl.style.display = "none"; return; }
+  }catch(e){}
+  function tryUnlock(){
+    var val = document.getElementById('lockPassword').value;
+    if(val === PASS){
+      try{ localStorage.setItem(KEY, "1"); }catch(e){}
+      screenEl.style.display = "none";
+    } else {
+      document.getElementById('lockError').style.display = "block";
+      document.getElementById('lockPassword').value = "";
+      document.getElementById('lockPassword').focus();
+    }
+  }
+  document.getElementById('lockSubmit').addEventListener('click', tryUnlock);
+  document.getElementById('lockPassword').addEventListener('keydown', function(e){ if(e.key === "Enter") tryUnlock(); });
+})();
+</script>
+<!-- =========================================================
+     ESTRUTURA DO APP
+     ========================================================= -->
+<div class="app-shell">
+
+  <!-- NAV LATERAL (desktop) -->
+  <aside class="app-nav no-print">
+    <div class="brand">
+      <p class="brand-title">✈️ EUROTRIP 2026</p>
+      <p class="brand-sub">Fernando & Letícia</p>
+    </div>
+    <ul class="nav-list" id="navList">
+      <!-- botões inseridos via JS a partir de NAV_ITEMS para manter em sincronia com a barra mobile -->
+    </ul>
+    <div class="nav-foot">
+      <button class="theme-toggle" id="themeToggleBtn" type="button">🌙 <span>Modo escuro</span></button>
+      <span id="offlineBadgeNav" style="font-size:11px; opacity:.75;">📶 Este app funciona 100% offline.</span>
+    </div>
+  </aside>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <div class="app-main">
+    <header class="app-header no-print">
+      <div class="search-wrap">
+        <span class="search-icon">🔎</span>
+        <input type="text" id="searchInput" class="search-input" placeholder="Buscar no guia (voos, hotéis, alertas...)" autocomplete="off">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <div class="header-actions">
+        <span class="offline-badge" id="offlineBadge">📴 Modo offline ativo</span>
+        <button class="btn" id="btnHoje" type="button">📍 Hoje</button>
+        <button class="btn" id="btnProximo" type="button">➡️ Próximo compromisso</button>
+        <span class="chip" id="tripCountdownChip">—</span>
+      </div>
+    </header>
+
+    <main class="app-content" id="appContent">
+
+      <!-- =====================================================
+           SEÇÃO: INÍCIO
+           ===================================================== -->
+      <section class="view active" id="sec-inicio" data-nav-label="Início">
+        <div class="card" style="background:linear-gradient(135deg, var(--chrome-bg), var(--chrome-bg-deep)); color:var(--chrome-text); border:none;">
+          <p style="font-family:var(--font-display); font-size:13px; letter-spacing:2px; text-transform:uppercase; opacity:.8; margin-bottom:2px;">Guia de viagem offline</p>
+          <h1 style="color:var(--chrome-text); font-size:32px; margin-bottom:2px;">EUROTRIP 2026</h1>
+          <p style="font-family:var(--font-display); font-size:17px; opacity:.92; margin-bottom:10px;">Fernando &amp; Letícia</p>
+          <p style="font-size:14.5px; opacity:.9;">📅 23/07/2026 a 13/08/2026 · 22 dias, contando ida e retorno</p>
+        </div>
+
+        <div class="card">
+          <h3>🗺️ Rota resumida</h3>
+          <div class="route-strip">
+            <div class="route-track" id="routeTrack"><!-- gerado via JS a partir de ROUTE_STOPS --></div>
+          </div>
+          <p style="font-size:13px; color:var(--text-muted);">Países visitados: Espanha, Itália e Países Baixos.</p>
+        </div>
+
+        <div class="grid-3">
+          <div class="card"><h4>💶 Budget total</h4><p style="font-family:var(--font-display); font-size:22px; color:var(--heading);">€ 3.500,00</p><p style="font-size:12.5px; color:var(--text-muted);">Para o casal, gastos do dia a dia.</p></div>
+          <div class="card"><h4>📊 Média diária (casal)</h4><p style="font-family:var(--font-display); font-size:22px; color:var(--heading);">≈ € 166,00</p><p style="font-size:12.5px; color:var(--text-muted);">Valor teórico de referência.</p></div>
+          <div class="card"><h4>🙋 Média diária (por pessoa)</h4><p style="font-family:var(--font-display); font-size:22px; color:var(--heading);">≈ € 83,00</p><p style="font-size:12.5px; color:var(--text-muted);">Valor teórico de referência.</p></div>
+        </div>
+
+        <div class="card">
+          <h3>✅ Já garantido</h3>
+          <p style="font-size:14px;">Principais despesas já compradas: <b>voos</b>, <b>hospedagens</b>, <b>trem</b>, <b>carro</b> e alguns <b>eventos</b> (Disclosure BCM e Loveland Festival).</p>
+        </div>
+
+        <div class="section-head" style="margin-top:22px;">
+          <p class="eyebrow">Painel rápido</p>
+          <h2>Visão geral</h2>
+        </div>
+        <div class="grid-2" id="dashboardCards">
+          <!-- Próximo voo / próxima hospedagem / próximo evento / saldo / tarefas pendentes — gerado via JS -->
+        </div>
+      </section>
+      <!-- fim: SEÇÃO INÍCIO -->
+
+      <!-- =====================================================
+           SEÇÃO: ROTEIRO
+           ===================================================== -->
+      <section class="view" id="sec-roteiro" data-nav-label="Roteiro">
+        <div class="section-head card-row">
+          <div>
+            <p class="eyebrow">Dia a dia</p>
+            <h2>Roteiro geral</h2>
+            <p class="desc">22 dias, de Recife até Recife. Marque os dias concluídos conforme a viagem avança.</p>
+          </div>
+          <div class="no-print" style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-outline" id="editModeBtn" type="button">✏️ Editar roteiro</button>
+            <button class="btn btn-outline" id="btnPrintRoteiro" type="button">🖨️ Imprimir / salvar em PDF</button>
+          </div>
+        </div>
+
+        <div class="filter-row no-print">
+          <select id="filterCidade"><option value="">Todas as cidades</option></select>
+          <input type="date" id="filterData" title="Ir para uma data específica">
+          <button class="btn btn-sm" id="btnLimparFiltro" type="button">Limpar filtros</button>
+        </div>
+
+        <p class="no-print" id="editModeHint" style="display:none; font-size:12.5px; color:var(--text-muted); background:var(--surface-2); border-radius:8px; padding:8px 12px; margin-bottom:10px;">✏️ Modo de edição ativo — toque em qualquer texto do roteiro para editar, no ✕ para apagar uma linha, ou em "+ adicionar item" para criar uma nova. Tudo fica salvo neste aparelho.</p>
+
+        <div id="itineraryList"><!-- 22 cartões de dia inseridos abaixo --></div>
+      </section>
+      <!-- fim: SEÇÃO ROTEIRO -->
+
+      <!-- =====================================================
+           SEÇÃO: TRANSPORTES
+           ===================================================== -->
+      <section class="view" id="sec-transportes" data-nav-label="Transportes">
+        <div class="section-head">
+          <p class="eyebrow">Como se locomover</p>
+          <h2>Transportes</h2>
+          <p class="desc">Voos, trem, transporte local e carro alugado.</p>
+        </div>
+
+        <div class="filter-row no-print" style="gap:6px;">
+          <button class="btn btn-sm" onclick="jumpTo('tr-voos')">✈️ Voos</button>
+          <button class="btn btn-sm" onclick="jumpTo('tr-trem')">🚄 Trem</button>
+          <button class="btn btn-sm" onclick="jumpTo('tr-roma')">🚆 Transporte em Roma</button>
+          <button class="btn btn-sm" onclick="jumpTo('tr-bari')">🚉 Bari → Aeroporto</button>
+          <button class="btn btn-sm" onclick="jumpTo('tr-restaurantes')">🍽️ Comer em Bari</button>
+          <button class="btn btn-sm" onclick="jumpTo('tr-carro')">🚗 Carro alugado</button>
+        </div>
+
+        <h3 id="tr-voos" style="margin-top:18px;">✈️ Voos</h3>
+
+        <!-- VOO 1 -->
+        <div class="pass">
+          <div class="pass-top">
+            <div class="pass-route"><span>Recife</span><span class="plane">✈</span><span>Madrid</span></div>
+            <div class="pass-meta">23/07/2026 · Iberia IB0140 · comprado via Voe Rotas</div>
+          </div>
+          <div class="pass-body">
+            <div class="kv"><span class="k">Saída (Recife)</span><span class="v">17h10</span></div>
+            <div class="kv"><span class="k">Chegada (Madrid)</span><span class="v">24/07/2026, 06h15</span></div>
+            <p style="font-size:13.5px; margin-top:8px;">📌 Chegar ao Aeroporto Internacional do Recife com no mínimo <b>3 horas</b> de antecedência.</p>
+            <h4>Linha do tempo do dia</h4>
+            <ul class="timeline">
+              <li><b>Sair de casa</b></li>
+              <li><b>Chegar ao aeroporto</b> — mínimo 3h antes do voo (voo às 17h10)</li>
+              <li><b>Check-in</b></li>
+              <li><b>Segurança</b></li>
+              <li><b>Embarque</b></li>
+              <li><b>Voo</b> — Recife → Madrid (IB0140)</li>
+              <li><b>Chegada a Madrid</b> — 06h15 (24/07)</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- VOO 2 -->
+        <div class="pass">
+          <div class="pass-top">
+            <div class="pass-route"><span>Madrid</span><span class="plane">✈</span><span>Palma de Maiorca</span></div>
+            <div class="pass-meta">24/07/2026 · Ryanair FR2051 · reserva X5DIYD</div>
+          </div>
+          <div class="pass-body">
+            <div class="kv"><span class="k">Saída</span><span class="v">09h25</span></div>
+            <div class="kv"><span class="k">Chegada</span><span class="v">10h55</span></div>
+            <div class="kv"><span class="k">Duração</span><span class="v">1h30</span></div>
+            <div class="alert-card alert-red" style="margin-top:10px;">
+              <span class="num">⚠️</span>
+              <span><b>CONEXÃO CURTA — NÃO PARAR PARA PASSEAR OU FAZER COMPRAS.</b></span>
+            </div>
+            <h4>Como as passagens são separadas</h4>
+            <ul>
+              <li>Desembarcar em Madrid</li>
+              <li>Passar pela imigração</li>
+              <li>Seguir para o terminal da Ryanair</li>
+              <li>Fazer novo check-in ou despacho, se necessário</li>
+              <li>Estar no portão com antecedência</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- VOO 3 -->
+        <div class="pass">
+          <div class="pass-top">
+            <div class="pass-route"><span>Palma</span><span class="plane">✈</span><span>Roma Fiumicino</span></div>
+            <div class="pass-meta">28/07/2026 · Ryanair · reserva G3K1FD</div>
+          </div>
+          <div class="pass-body">
+            <div class="kv"><span class="k">Saída</span><span class="v">16h35</span></div>
+            <div class="kv"><span class="k">Chegada</span><span class="v">18h20</span></div>
+            <h4>Saindo de Cala d'Or</h4>
+            <ul class="timeline">
+              <li><b>13h00</b> — horário recomendado para sair de Cala d'Or</li>
+              <li>≈ 1 hora de estrada (acrescentar margem para trânsito e, se aplicável, tempo para devolução de carro)</li>
+              <li><b>14h30–14h35</b> — meta de chegada ao Aeroporto de Palma (≈2h antes do voo)</li>
+              <li><b>16h35</b> — decolagem</li>
+              <li><b>18h20</b> — chegada a Roma Fiumicino</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- VOO 4 -->
+        <div class="pass">
+          <div class="pass-top">
+            <div class="pass-route"><span>Bari</span><span class="plane">✈</span><span>Amsterdã</span></div>
+            <div class="pass-meta">06/08/2026 · comprado via Decolar · voo com 1 escala em Roma</div>
+          </div>
+          <div class="pass-body">
+            <div class="kv"><span class="k">Trecho 1</span><span class="v">ITA Airways 3495 — Bari (BRI) 15h20 → Roma Fiumicino (FCO) 16h25 · 1h05</span></div>
+            <div class="kv"><span class="k">Conexão em Roma</span><span class="v">Espera de 1h00 · troca de avião</span></div>
+            <div class="kv"><span class="k">Trecho 2</span><span class="v">KLM 1606 — Roma (FCO) 17h25 → Amsterdã (AMS) 19h50 · 2h25</span></div>
+            <div class="kv"><span class="k">Meta no aeroporto de Bari</span><span class="v">até aproximadamente 13h00</span></div>
+            <p style="font-size:13px; color:var(--text-muted);">Bilhete comprado com a KLM, operado pela ITA Airways no primeiro trecho. Cuidado com a conexão em Roma — 1h de espera exige agilidade no desembarque.</p>
+          </div>
+        </div>
+
+        <!-- VOO 5 -->
+        <div class="pass">
+          <div class="pass-top">
+            <div class="pass-route"><span>Amsterdã</span><span class="plane">✈</span><span>Madrid</span></div>
+            <div class="pass-meta">12/08/2026 · Air Europa 1098 · voo direto</div>
+          </div>
+          <div class="pass-body">
+            <div class="kv"><span class="k">Saída</span><span class="v">11h00</span></div>
+            <div class="kv"><span class="k">Chegada</span><span class="v">13h40</span></div>
+            <div class="kv"><span class="k">Saída do hotel</span><span class="v">08h00 (The Muse Amsterdam Hotel)</span></div>
+            <div class="kv"><span class="k">Meta no aeroporto</span><span class="v">08h45–09h00</span></div>
+          </div>
+        </div>
+
+        <!-- VOO 6 -->
+        <div class="pass">
+          <div class="pass-top">
+            <div class="pass-route"><span>Madrid</span><span class="plane">✈</span><span>Recife</span></div>
+            <div class="pass-meta">13/08/2026 · Iberia IB0139 · comprado via Voe Rotas</div>
+          </div>
+          <div class="pass-body">
+            <div class="kv"><span class="k">Saída (Madrid)</span><span class="v">12h15</span></div>
+            <div class="kv"><span class="k">Chegada (Recife)</span><span class="v">15h40</span></div>
+            <p style="font-size:13.5px;">📌 Chegar ao aeroporto com <b>3 horas</b> de antecedência.</p>
+          </div>
+        </div>
+
+        <h3 id="tr-trem" style="margin-top:26px;">🚄 Trem Roma → Bari</h3>
+        <div class="card">
+          <div class="card-row">
+            <div>
+              <h3 style="margin-bottom:2px;">Frecciargento FA 8303 — Trenitalia</h3>
+              <p style="font-size:13px; color:var(--text-muted);">Roma Termini → Bari Centrale · 31/07/2026</p>
+            </div>
+            <span class="tag tag-green">Vagão 6 · Assento 8B</span>
+          </div>
+          <div class="kv"><span class="k">Saída</span><span class="v">08h00</span></div>
+          <div class="kv"><span class="k">Chegada</span><span class="v">12h41</span></div>
+          <div class="kv"><span class="k">Duração</span><span class="v">4h41</span></div>
+          <div class="kv"><span class="k">Preço pago</span><span class="v">≈ € 57 por passageiro (ou conforme bilhete)</span></div>
+          <h4>Orientação do dia</h4>
+          <ul class="timeline">
+            <li><b>06h00</b> — Acordar</li>
+            <li><b>06h20</b> — Café rápido e conferência final</li>
+            <li><b>06h40</b> — Check-out</li>
+            <li><b>06h45–06h50</b> — Chamar táxi, Uber ou Free Now</li>
+            <li><b>07h05–07h15</b> — Chegar à Roma Termini</li>
+            <li><b>07h15</b> — Verificar plataforma no painel</li>
+            <li><b>07h20</b> — Comprar água, café ou lanche</li>
+            <li><b>07h40</b> — Estar próximo à plataforma</li>
+            <li><b>08h00</b> — Partida</li>
+            <li><b>12h41</b> — Chegada em Bari Centrale</li>
+          </ul>
+          <div class="alert-card alert-yellow">
+            <span class="num">⚠️</span>
+            <span>Não é necessário validar bilhete digital com QR Code, salvo instrução específica do bilhete. A plataforma pode aparecer apenas perto do horário — não espere até o último minuto. Guarde a bagagem nos compartimentos e mantenha objetos de valor por perto.</span>
+          </div>
+        </div>
+
+        <h3 id="tr-roma" style="margin-top:26px;">🚆 Transporte local em Roma</h3>
+        <div class="card">
+          <h3>Roma Fiumicino (FCO) → Airbnb</h3>
+          <p style="font-size:13px; color:var(--text-muted);">Chegada 28/07 às 18h20 · Airbnb: Piazzale dei Partigiani, 7, Roma (próximo à estação Roma Ostiense)</p>
+          <p><b>Melhor opção econômica: trem FL1</b> — <span style="color:var(--text-muted);">não comprar o Leonardo Express.</span></p>
+          <ol>
+            <li>Desembarcar</li>
+            <li>Seguir placas "Trains" ou "Stazione Ferroviaria"</li>
+            <li>Caminhar ≈ 8 a 12 minutos até a estação do aeroporto</li>
+            <li>Comprar bilhete para Roma Ostiense</li>
+            <li>Pegar o trem regional FL1 (não o Leonardo Express)</li>
+            <li>Descer em Roma Ostiense</li>
+            <li>Caminhar até o Airbnb (≈ 3 a 8 minutos)</li>
+          </ol>
+          <div class="grid-2">
+            <div class="summary-box"><span class="lbl">Custo estimado</span><div class="val" style="font-size:16px;">≈ € 8 / pessoa</div><p style="font-size:12px; color:var(--text-muted);">Trem, ≈ 30–35 min</p></div>
+            <div class="summary-box"><span class="lbl">Chegada estimada ao Airbnb</span><div class="val" style="font-size:16px;">≈ 20h00–20h30</div></div>
+          </div>
+          <p style="font-size:13px; margin-top:8px;"><b>Alternativa:</b> táxi oficial, ≈ € 50 a € 70, 35 a 60 min conforme trânsito.</p>
+          <p style="font-size:13px; color:var(--green); font-weight:700;">✅ Recomendação: usar o FL1 — mais barato e deixa o casal perto da hospedagem.</p>
+        </div>
+
+        <div class="card">
+          <h3>Airbnb → Roma Termini</h3>
+          <p style="font-size:13px; color:var(--text-muted);">31/07 · trem sai às 08h00</p>
+          <p><b>Opção recomendada: táxi, Uber ou Free Now.</b></p>
+          <p style="font-size:13.5px;">Motivo: malas, horário cedo, evitar baldeação e reduzir risco.</p>
+          <div class="grid-2">
+            <div class="summary-box"><span class="lbl">Tempo</span><div class="val" style="font-size:16px;">15–25 min</div></div>
+            <div class="summary-box"><span class="lbl">Custo</span><div class="val" style="font-size:16px;">€ 15–25</div></div>
+          </div>
+          <p style="font-size:13px; margin-top:8px;"><b>Alternativa econômica:</b> caminhar até Piramide, pegar o metrô Linha B, descer em Termini. ≈ € 1,50 a € 2 por pessoa.</p>
+          <div class="alert-card alert-yellow" style="margin-top:8px;"><span class="num">ℹ️</span><span>Não são os mesmos € 8 do trajeto Fiumicino → Ostiense — são valores diferentes.</span></div>
+        </div>
+
+        <h3 id="tr-bari" style="margin-top:26px;">🚉 Bari Centrale → Aeroporto de Bari</h3>
+        <div class="card">
+          <p style="font-size:13px; color:var(--text-muted);">Chegada em Bari Centrale: 12h41 · Retirada do carro: 16h00 no Aeroporto de Bari</p>
+          <ul class="timeline">
+            <li><b>12h41</b> — Chegada</li>
+            <li><b>12h50–14h00</b> — Almoçar com calma dentro da estação ou nas proximidades</li>
+            <li><b>14h00–14h20</b> — Seguir para o trem do aeroporto (Ferrotramviaria / linha para Bari Aeroporto)</li>
+            <li><b>14h30–15h00</b> — Chegada prevista ao aeroporto</li>
+          </ul>
+          <div class="grid-2">
+            <div class="summary-box"><span class="lbl">Custo do trem</span><div class="val" style="font-size:16px;">≈ € 5–6 / pessoa</div><p style="font-size:12px; color:var(--text-muted);">≈ 15–20 min</p></div>
+            <div class="summary-box"><span class="lbl">Alternativa: táxi</span><div class="val" style="font-size:16px;">≈ € 25–35</div></div>
+          </div>
+          <p style="font-size:13px; color:var(--green); font-weight:700; margin-top:8px;">✅ Não é necessário pegar táxi — o trem é mais barato e atende bem.</p>
+        </div>
+
+        <h3 id="tr-restaurantes" style="margin-top:26px;">🍽️ Almoço em Bari Centrale</h3>
+        <div class="card">
+          <p style="font-size:13.5px;">Nenhum restaurante específico foi confirmado — opções genéricas próximas à estação:</p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
+            <span class="tag">☕ Cafeterias</span><span class="tag">🥪 Panini</span><span class="tag">🍞 Focaccia</span><span class="tag">🍕 Pizza</span><span class="tag">🥨 Lanches</span><span class="tag">🍽️ Restaurantes próximos</span>
+          </div>
+          <p style="font-size:13.5px; color:var(--green); font-weight:700;">✅ Recomendação: escolher um local próximo à estação para não carregar malas por longas distâncias.</p>
+        </div>
+
+        <h3 id="tr-carro" style="margin-top:26px;">🚗 Reserva de carro — DiscoverCars</h3>
+        <div class="card">
+          <div class="grid-2">
+            <div><span class="kv"><span class="k">Retirada</span></span><p class="v">31/07 às 16h00 — Aeroporto de Bari</p></div>
+            <div><span class="kv"><span class="k">Devolução</span></span><p class="v">06/08 às 14h00 (ver plano de devolução abaixo)</p></div>
+          </div>
+          <div class="alert-card alert-yellow">
+            <span class="num">ℹ️</span>
+            <span>DiscoverCars é intermediária — confirme no voucher qual é a locadora real. A política de atraso é definida pela locadora; em caso de atraso, ligue para o telefone do voucher.</span>
+          </div>
+          <h4>Checklist de retirada</h4>
+          <ul class="checklist" data-group="carro">
+            <li class="check-item"><input type="checkbox" id="chk-carro-0" data-check="carro-0"><label for="chk-carro-0">Confirmar no voucher qual é a locadora real</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-1" data-check="carro-1"><label for="chk-carro-1">Levar passaporte</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-2" data-check="carro-2"><label for="chk-carro-2">Levar CNH</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-3" data-check="carro-3"><label for="chk-carro-3">Levar PID</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-4" data-check="carro-4"><label for="chk-carro-4">Levar cartão de crédito físico no nome do condutor</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-5" data-check="carro-5"><label for="chk-carro-5">Verificar limite disponível para caução</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-6" data-check="carro-6"><label for="chk-carro-6">Fotografar todo o carro antes de sair</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-7" data-check="carro-7"><label for="chk-carro-7">Fotografar rodas, pneus, vidros, para-choques e painel</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-8" data-check="carro-8"><label for="chk-carro-8">Gravar vídeo completo do veículo</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-9" data-check="carro-9"><label for="chk-carro-9">Conferir combustível</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-10" data-check="carro-10"><label for="chk-carro-10">Conferir política de abastecimento</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-11" data-check="carro-11"><label for="chk-carro-11">Conferir quilometragem</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-12" data-check="carro-12"><label for="chk-carro-12">Conferir local exato da devolução</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-carro-13" data-check="carro-13"><label for="chk-carro-13">Conferir se há shuttle da locadora</label></li>
+          </ul>
+          <div class="progress-wrap"><div class="progress-bar"><div id="prog-carro-bar"></div></div><span class="progress-text" id="prog-carro-text"></span></div>
+
+          <h4 style="margin-top:14px;">Plano de devolução (06/08 — voo às 15h20)</h4>
+          <p style="font-size:13.5px; color:var(--danger-text); font-weight:700;">⚠️ Não devolver o carro apenas às 14h00 — seguir o plano abaixo.</p>
+          <ul class="timeline">
+            <li><b>11h15–11h30</b> — Sair de Monopoli</li>
+            <li><b>12h15–12h40</b> — Chegar à locadora</li>
+            <li><b>até 13h00</b> — Devolver o carro</li>
+            <li>Seguir imediatamente para o terminal</li>
+            <li><b>14h30–14h40</b> — Estar no portão</li>
+          </ul>
+        </div>
+
+      </section>
+
+      <!-- =====================================================
+           SEÇÃO: HOSPEDAGENS
+           ===================================================== -->
+      <section class="view" id="sec-hospedagens" data-nav-label="Hospedagens">
+        <div class="section-head">
+          <p class="eyebrow">Onde ficar</p>
+          <h2>Hospedagens</h2>
+          <p class="desc">Toque no lápis ✏️ para editar campos marcados como "A CONFIRMAR" assim que tiver a informação.</p>
+        </div>
+
+        <!-- HOSPEDAGEM 1 — PALMA -->
+        <div class="card">
+          <div class="card-row"><h3>1. Palma de Maiorca — Hotel Amic Horizonte</h3><span class="tag tag-gold">Booking</span></div>
+          <div class="kv"><span class="k">Período</span><span class="v">24/07 a 26/07/2026</span></div>
+          <div class="kv"><span class="k">Check-in</span><span class="v">15h00</span></div>
+          <div class="kv"><span class="k">Check-out</span><span class="v">11h00</span></div>
+          <div class="kv"><span class="k">Endereço</span><span class="v">Vista Alegre, 1, Palma de Mallorca, 07015, Espanha</span>
+            <button class="copy-btn" onclick="copyAddress('Vista Alegre, 1, Palma de Mallorca, 07015, Espanha', this)">copiar</button>
+            <button class="map-btn" onclick="openMap('Vista Alegre, 1, Palma de Mallorca, 07015, Espanha')">mapa</button>
+          </div>
+          <div class="kv"><span class="k">Telefone</span><span class="v">+34 971 40 09 69</span></div>
+          <div class="kv"><span class="k">Código da reserva</span><span class="editable-row" data-edit-field="hosp1-codigo" data-edit-default="A CONFIRMAR"></span></div>
+          <div class="kv"><span class="k">Transporte</span><span class="editable-row" data-edit-field="hosp1-transporte" data-edit-default="A CONFIRMAR"></span></div>
+          <h4>Observações</h4>
+          <div class="editable-row" data-edit-field="hosp1-obs" data-edit-default="" data-edit-multiline="1"></div>
+          <h4>Anotações pessoais</h4>
+          <div class="editable-row" data-edit-field="hosp1-notas" data-edit-default="" data-edit-multiline="1"></div>
+        </div>
+
+        <!-- HOSPEDAGEM 2 — CALA D'OR -->
+        <div class="card">
+          <div class="card-row"><h3>2. Cala d'Or — Hostal San Francisco</h3><span class="tag tag-gold">Booking</span></div>
+          <div class="kv"><span class="k">Período</span><span class="v">26/07 a 28/07/2026</span></div>
+          <div class="kv"><span class="k">Check-in</span><span class="v">14h00 (recepção até 22h00)</span></div>
+          <div class="kv"><span class="k">Check-out</span><span class="v">10h00 (até 11h00)</span></div>
+          <div class="kv"><span class="k">Endereço</span><span class="v">Avenida Tagomago, 18, 07660 Cala d'Or, Espanha</span>
+            <button class="copy-btn" onclick="copyAddress('Avenida Tagomago, 18, 07660 Cala d\'Or, Espanha', this)">copiar</button>
+            <button class="map-btn" onclick="openMap('Avenida Tagomago, 18, 07660 Cala d\'Or, Espanha')">mapa</button>
+          </div>
+          <div class="kv"><span class="k">Código da reserva</span><span class="v">Confirmação 14467632857082166411 · PIN 474215</span></div>
+          <div class="kv"><span class="k">Nº de check-in</span><span class="v">658464979 (recomendado: 963340415)</span></div>
+          <div class="kv"><span class="k">Transporte até o aeroporto</span><span class="editable-row" data-edit-field="hosp2-transporte" data-edit-default="A CONFIRMAR"></span></div>
+        </div>
+
+        <!-- HOSPEDAGEM 3 — ROMA -->
+        <div class="card">
+          <div class="card-row"><h3>3. Roma — Airbnb</h3><span class="tag tag-gold">Airbnb</span></div>
+          <div class="kv"><span class="k">Período</span><span class="v">28/07 a 31/07/2026</span></div>
+          <div class="kv"><span class="k">Endereço</span><span class="v">Piazzale dei Partigiani, 7, Roma, Lácio 00154, Itália</span>
+            <button class="copy-btn" onclick="copyAddress('Piazzale dei Partigiani, 7, Roma, Lácio 00154, Itália', this)">copiar</button>
+            <button class="map-btn" onclick="openMap('Piazzale dei Partigiani, 7, Roma, Lácio 00154, Itália')">mapa</button>
+          </div>
+          <p style="font-size:13px; color:var(--text-muted);">Próximo à estação Roma Ostiense.</p>
+          <div class="kv"><span class="k">Código da reserva</span><span class="editable-row" data-edit-field="hosp3-codigo" data-edit-default="A CONFIRMAR"></span></div>
+        </div>
+
+        <!-- HOSPEDAGEM 4 — CASTROMEDIANO -->
+        <div class="card">
+          <div class="card-row"><h3>4. Castromediano — Airbnb</h3><span class="tag tag-gold">Airbnb</span></div>
+          <div class="kv"><span class="k">Período</span><span class="v">31/07 a 03/08/2026</span></div>
+          <div class="kv"><span class="k">Endereço</span><span class="v">Via Bellini, 30, Castromediano, Apulia 73020, Itália</span>
+            <button class="copy-btn" onclick="copyAddress('Via Bellini, 30, Castromediano, Apulia 73020, Itália', this)">copiar</button>
+            <button class="map-btn" onclick="openMap('Via Bellini, 30, Castromediano, Apulia 73020, Itália')">mapa</button>
+          </div>
+          <div class="kv"><span class="k">Método de check-in</span><span class="v">Cofre de chaves (key safe)</span></div>
+          <p style="font-size:13px; color:var(--text-muted);">Castromediano fica ao lado de Lecce — é a base para explorar o Salento.</p>
+          <div class="kv"><span class="k">Código da reserva</span><span class="editable-row" data-edit-field="hosp4-codigo" data-edit-default="A CONFIRMAR"></span></div>
+        </div>
+
+        <!-- HOSPEDAGEM 5 — MONOPOLI -->
+        <div class="card">
+          <div class="card-row"><h3>5. Monopoli — Airbnb</h3><span class="tag tag-gold">Airbnb</span></div>
+          <div class="kv"><span class="k">Período</span><span class="v">03/08 a 06/08/2026</span></div>
+          <div class="kv"><span class="k">Endereço</span><span class="v">Via Bixio, 249, Monopoli, Puglia 70043, Itália</span>
+            <button class="copy-btn" onclick="copyAddress('Via Bixio, 249, Monopoli, Puglia 70043, Itália', this)">copiar</button>
+            <button class="map-btn" onclick="openMap('Via Bixio, 249, Monopoli, Puglia 70043, Itália')">mapa</button>
+          </div>
+          <div class="kv"><span class="k">Código da reserva</span><span class="editable-row" data-edit-field="hosp5-codigo" data-edit-default="A CONFIRMAR"></span></div>
+        </div>
+
+        <!-- HOSPEDAGEM 6 — AMSTERDÃ -->
+        <div class="card">
+          <div class="card-row"><h3>6. Amsterdã — The Muse Amsterdam Hotel</h3><span class="tag tag-gold">Decolar</span></div>
+          <div class="kv"><span class="k">Período</span><span class="v">06/08 a 12/08/2026</span></div>
+          <div class="kv"><span class="k">Check-in</span><span class="v">15h00</span></div>
+          <div class="kv"><span class="k">Check-out</span><span class="v">11h00</span></div>
+          <div class="kv"><span class="k">Endereço</span><span class="v">Bronckhorststraat 14, Amsterdã</span>
+            <button class="copy-btn" onclick="copyAddress('Bronckhorststraat 14, Amsterdã', this)">copiar</button>
+            <button class="map-btn" onclick="openMap('Bronckhorststraat 14, Amsterdã')">mapa</button>
+          </div>
+          <div class="kv"><span class="k">Código da reserva</span><span class="editable-row" data-edit-field="hosp6-codigo" data-edit-default="A CONFIRMAR"></span></div>
+        </div>
+
+        <!-- HOSPEDAGEM 7 — MADRID -->
+        <div class="card">
+          <div class="card-row"><h3>7. Madrid — Hostal Ballesta</h3><span class="tag tag-gold">Decolar</span></div>
+          <div class="kv"><span class="k">Período</span><span class="v">12/08 a 13/08/2026</span></div>
+          <div class="kv"><span class="k">Check-in</span><span class="v">13h00</span></div>
+          <div class="kv"><span class="k">Check-out</span><span class="v">11h00</span></div>
+          <div class="kv"><span class="k">Endereço</span><span class="v">Calle de la Ballesta, 5, Madrid</span>
+            <button class="copy-btn" onclick="copyAddress('Calle de la Ballesta, 5, Madrid', this)">copiar</button>
+            <button class="map-btn" onclick="openMap('Calle de la Ballesta, 5, Madrid')">mapa</button>
+          </div>
+          <div class="kv"><span class="k">Código da reserva</span><span class="editable-row" data-edit-field="hosp7-codigo" data-edit-default="A CONFIRMAR"></span></div>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           SEÇÃO: PUGLIA
+           ===================================================== -->
+      <section class="view" id="sec-puglia" data-nav-label="Puglia">
+        <div class="section-head">
+          <p class="eyebrow">Roteiro de carro</p>
+          <h2>Puglia de carro</h2>
+          <p class="desc">31/07 a 06/08/2026 — duas bases: Castromediano (Lecce) e Monopoli.</p>
+        </div>
+
+        <div class="card">
+          <h3>🗺️ Visão geral</h3>
+          <div class="exp-table-wrap">
+            <table class="exp-table">
+              <thead><tr><th>Dia</th><th>Data</th><th>Base</th><th>Atividade principal</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>31/07</td><td>Bari → Lecce</td><td>Bari Vecchia, transfer, chegada em Lecce/Castromediano</td></tr>
+                <tr><td>2</td><td>01/08</td><td>Lecce</td><td>Santa Cesarea Terme, Marina Serra, Il Ciolo, Leuca</td></tr>
+                <tr><td>3</td><td>02/08</td><td>Lecce</td><td>Lado Jônico: Punta della Suina + Gallipoli</td></tr>
+                <tr><td>4</td><td>03/08</td><td>Lecce → Monopoli</td><td>Melendugno + Ostuni + transfer</td></tr>
+                <tr><td>5</td><td>04/08</td><td>Monopoli</td><td>Polignano a Mare + barco pelas grutas</td></tr>
+                <tr><td>6</td><td>05/08</td><td>Monopoli</td><td>Matera + Alberobello</td></tr>
+                <tr><td>7</td><td>06/08</td><td>Monopoli → voo</td><td>Bari Vecchia + voo 15h</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="font-size:12.5px; color:var(--text-muted); margin-top:8px;"><b>Descartado do roteiro (Gargano — Vieste/Mattinata):</b> Isole Tremiti, Vignanotica, Portogreco. Ficam a ~2h30-3h de carro de Monopoli, mais balsa para Tremiti — inviável como bate-volta com essa base. Fica para um roteiro dedicado, numa próxima viagem.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>📍 Dia 1 (31/07) — Roma → Bari → Lecce</h3></div>
+          <ul class="timeline">
+            <li><b>08h00</b> — Saída de Roma de trem (Frecciargento FA8303, Roma Termini → Bari Centrale).</li>
+            <li><b>12h41</b> — Chegada a Bari Centrale.</li>
+            <li><b>12h41–14h30</b> — Bari Vecchia: Basílica San Nicola, Catedral, orla, panzerotti (~1h45 de passeio).</li>
+            <li><b>14h30</b> — Trem local até o Aeroporto de Bari Palese (Ferrotramviaria) — 15-20 min.</li>
+            <li><b>~15h00</b> — Retirada do carro alugado (DiscoverCars) — ~30-45 min de processo.</li>
+            <li><b>~16h00</b> — Saída para Lecce/Castromediano — <b>1h50 (~150 km)</b>.</li>
+            <li><b>~17h50</b> — Chegada, check-in no Airbnb. Noite livre — centro histórico + jantar.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>📍 Dia 2 (01/08) — Corredor de Santa Cesarea Terme</h3></div>
+          <ul class="timeline">
+            <li><b>08h15</b> — Saída de Lecce/Castromediano.</li>
+            <li><b>09h00</b> — Bagno Marino Archi + Cala Porticciolo, em Santa Cesarea Terme (~45 min, ~48 km) — fica até 15h.</li>
+            <li><b>15h15</b> — Marina Serra, piscina naturale (~25 min) — 1h30-2h.</li>
+            <li><b>17h00</b> — Ponte Ciolo / Il Ciolo, em Gagliano del Capo (~20-25 min) — 1h30.</li>
+            <li><b>19h00</b> — Santa Maria di Leuca (~10 min): jantar e pôr do sol no encontro dos mares Adriático e Jônico.</li>
+            <li>Volta a Lecce/Castromediano — ~1h05 (~70 km).</li>
+          </ul>
+          <p style="font-size:12.5px; color:var(--text-muted);">Total de estrada no dia: ~2h45. Castro Marina e Cala dell'Acquaviva ficam no mesmo trecho — descartadas por decisão própria (redundantes com o beach club).</p>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>📍 Dia 3 (02/08) — Lado Jônico: Punta della Suina e Gallipoli</h3></div>
+          <ul class="timeline">
+            <li><b>09h00</b> — Saída de Lecce/Castromediano.</li>
+            <li><b>09h45</b> — Punta della Suina (~40-45 min, ~40 km) — dia de praia, ~7h.</li>
+            <li><b>17h30</b> — Gallipoli, Centro Storico + Castelo (~11 min) — pôr do sol na costa Jônica (voltada pro poente) + jantar.</li>
+            <li>Volta a Lecce/Castromediano — ~40 min (~40 km).</li>
+          </ul>
+          <div class="alert-card alert-yellow"><span class="num">⚠️</span><span>Reviews de Punta della Suina citam preços altos e atendimento inconsistente no lido pago. Considerar levar toalha/guarda-sol próprio e usar a faixa de areia livre.</span></div>
+          <p style="font-size:12.5px; color:var(--text-muted);">Total de estrada no dia: ~1h35 — dia mais tranquilo dos três em Lecce.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>📍 Dia 4 (03/08) — Melendugno, Ostuni e transfer para Monopoli</h3></div>
+          <ul class="timeline">
+            <li><b>09h00</b> — Check-out em Lecce/Castromediano.</li>
+            <li><b>09h30</b> — Melendugno (~30 min, ~25 km): Grotta della Poesia → Faraglioni di Sant'Andrea → Torre dell'Orso, nessa ordem (5-10 min entre cada praia).</li>
+            <li><b>até 16h15</b> — Saída de Melendugno — <b>horário inegociável</b>.</li>
+            <li><b>17h45</b> — Ostuni, Borgo Antico Bistrot (~1h20-1h30, ~105 km) — pôr do sol; não aceita reserva, chegar cedo (~2h-2h30).</li>
+            <li><b>~20h15</b> — Saída para Monopoli (~36-40 min, ~42 km).</li>
+            <li><b>~21h00</b> — Chegada em Monopoli, check-in noturno no Airbnb.</li>
+          </ul>
+          <p style="font-size:12.5px; color:var(--text-muted);">Total de estrada no dia: ~2h35 — dia mais puxado, mas com bom tempo de praia. Dica: separar a bolsa de praia das malas grandes, já que tudo fica no porta-malas o dia todo.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>📍 Dia 5 (04/08) — Polignano a Mare</h3></div>
+          <ul class="timeline">
+            <li><b>08h00</b> — Monopoli → Polignano (~11 min, ~7 km).</li>
+            <li><b>08h30–11h00</b> — Lama Monachile (Cala Porto): ir cedo, lota rápido. Piso de seixos — levar sapatilha.</li>
+            <li><b>11h00–13h00</b> — Passeio de barco pelas grutas, saindo do Porto Turístico/Calaponte Marina: Grotta delle Rondinelle, Cala Paura, Grotta Palazzese, vista da Lama Monachile pelo mar. <b>Reservar com antecedência</b> (alta temporada).</li>
+            <li><b>13h00–14h30</b> — Almoço no centro.</li>
+            <li><b>14h30–17h00</b> — Cala Paura (opção menos cheia e mais local, ~15 min a pé do centro).</li>
+            <li><b>17h00+</b> — Centro histórico de Polignano ou volta a Monopoli para o centrinho. Jantar.</li>
+          </ul>
+          <p style="font-size:12.5px; color:var(--text-muted);">Sem deslocamentos longos neste dia — tudo concentrado em Polignano.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>📍 Dia 6 (05/08) — Matera e Alberobello</h3></div>
+          <p style="font-size:13px; color:var(--text-muted);"><b>Ordem definida: Matera primeiro, Alberobello por último</b> — evita calor e multidão nos trulli e encurta o trajeto final de volta.</p>
+          <ul class="timeline">
+            <li><b>08h00</b> — Monopoli → Matera (~1h25-1h30, ~76-80 km).</li>
+            <li><b>09h45–15h00</b> — Sassi di Matera: manhã inteira + almoço + início da tarde (Sasso Caveoso, Sasso Barisano, mirantes) — ~5h de visita.</li>
+            <li><b>15h00</b> — Matera → Alberobello (~1h10-1h15, ~68-69 km).</li>
+            <li><b>16h15–18h30</b> — Alberobello (trulli), fim de tarde — sem excursões e com calor mais ameno.</li>
+            <li><b>18h30</b> — Alberobello → Monopoli (~25 min, ~22 km).</li>
+            <li><b>19h00+</b> — Noite livre em Monopoli, jantar.</li>
+          </ul>
+          <p style="font-size:12.5px; color:var(--text-muted);">Total de estrada no dia: ~3h — dia mais longo em deslocamento, mas sem pressa entre as paradas. Sem praia programada (ambas as cidades são no interior) — opção: mergulho rápido em Monopoli de manhã cedo ou à noite.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>📍 Dia 7 (06/08) — Bari e voo</h3></div>
+          <ul class="timeline">
+            <li><b>Manhã livre</b> — Bari Vecchia (Basílica San Nicola, Catedral, orla), sem pressa, o aeroporto está logo ali.</li>
+            <li>Devolução do carro no Aeroporto de Bari Palese — ~30-40 min de Monopoli.</li>
+            <li><b>15h00</b> — Voo para Amsterdã.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>📏 Resumo de distâncias entre bases</h3>
+          <div class="exp-table-wrap">
+            <table class="exp-table">
+              <thead><tr><th>Trecho</th><th>Distância</th><th>Tempo de carro</th></tr></thead>
+              <tbody>
+                <tr><td>Bari Centrale → Aeroporto de Bari</td><td>—</td><td>15-20 min (trem)</td></tr>
+                <tr><td>Aeroporto de Bari → Lecce</td><td>~150 km</td><td>1h50</td></tr>
+                <tr><td>Lecce → Santa Cesarea Terme</td><td>~48 km</td><td>~45 min</td></tr>
+                <tr><td>Lecce → Punta della Suina / Gallipoli</td><td>~40 km</td><td>~40-45 min</td></tr>
+                <tr><td>Lecce → Melendugno (Grotta Poesia)</td><td>~25 km</td><td>~30 min</td></tr>
+                <tr><td>Melendugno → Ostuni</td><td>~105 km</td><td>1h20-1h30</td></tr>
+                <tr><td>Ostuni → Monopoli</td><td>~42 km</td><td>36-40 min</td></tr>
+                <tr><td>Monopoli → Polignano a Mare</td><td>~7 km</td><td>~11 min</td></tr>
+                <tr><td>Monopoli → Alberobello</td><td>~22 km</td><td>~25 min</td></tr>
+                <tr><td>Monopoli → Matera</td><td>~76-80 km</td><td>1h25-1h30</td></tr>
+                <tr><td>Alberobello → Matera</td><td>~68-69 km</td><td>1h10-1h15</td></tr>
+                <tr><td>Monopoli → Aeroporto de Bari</td><td>—</td><td>~30-40 min</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>🚗 Dicas de trânsito e estacionamento na Itália</h3>
+          <ul>
+            <li><b>ZTL (Zona a Traffico Limitato):</b> a maior fonte de multa de turista na Itália. Centros históricos como Lecce, Ostuni (Borgo Antico), Monopoli, Gallipoli e Otranto costumam ter ZTL com câmera automática — entrar sem autorização gera multa que chega meses depois pelo correio. Regra de ouro: <b>nunca entrar de carro no centro histórico</b>; estacionar fora e ir a pé.</li>
+            <li><b>Autovelox (radar de velocidade):</b> comuns nas estradas estaduais (SS) na saída de cidades pequenas, onde o limite cai de repente. Ficar de olho na sinalização ao passar por qualquer povoado.</li>
+            <li><b>Pedágio (autostrada):</b> os trechos deste roteiro são majoritariamente por estradas estaduais/provinciais (SS/SP), que não têm pedágio. Se o GPS sugerir a autostrada (ex.: A14) em algum trecho perto de Bari/Monopoli, é rápido e barato — pegar o tíquete na entrada e pagar na saída (aceita cartão de crédito internacional).</li>
+            <li><b>Estacionamento:</b> linhas <b>azuis</b> = pago (por app tipo EasyPark/Telepass Pay ou parcômetro), linhas <b>brancas</b> = grátis, linhas <b>amarelas</b> = reservado/residente (não usar). Em cidades pequenas como Ostuni e Gallipoli, geralmente dá para achar vaga branca gratuita a uma curta caminhada do centro.</li>
+            <li>Conferir sempre no Google Maps/GPS no dia, já que essas zonas podem mudar — esta lista é um alerta geral, não uma garantia de onde exatamente estão as câmeras.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           SEÇÃO: EVENTOS
+           ===================================================== -->
+      <section class="view" id="sec-eventos" data-nav-label="Eventos">
+        <div class="section-head">
+          <p class="eyebrow">Festas e passeios com ingresso</p>
+          <h2>Eventos</h2>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>🎧 Disclosure na BCM Mallorca</h3><span class="tag tag-green">Comprado</span></div>
+          <div class="kv"><span class="k">Data</span><span class="v">24/07/2026</span></div>
+          <div class="kv"><span class="k">Local</span><span class="v">BCM Mallorca</span></div>
+          <h4>Checklist</h4>
+          <ul class="checklist" data-group="disclosure">
+            <li class="check-item"><input type="checkbox" id="chk-disc-0" data-check="disclosure-0"><label for="chk-disc-0">Ingresso</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-disc-1" data-check="disclosure-1"><label for="chk-disc-1">Documento</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-disc-2" data-check="disclosure-2"><label for="chk-disc-2">Transporte de ida</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-disc-3" data-check="disclosure-3"><label for="chk-disc-3">Transporte de volta</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-disc-4" data-check="disclosure-4"><label for="chk-disc-4">Horário de abertura</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-disc-5" data-check="disclosure-5"><label for="chk-disc-5">Horário do artista</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-disc-6" data-check="disclosure-6"><label for="chk-disc-6">Valor reservado para bebidas</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-disc-7" data-check="disclosure-7"><label for="chk-disc-7">Roupa separada</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-disc-8" data-check="disclosure-8"><label for="chk-disc-8">Power bank carregado</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-disc-9" data-check="disclosure-9"><label for="chk-disc-9">Ponto de encontro combinado</label></li>
+          </ul>
+          <div class="progress-wrap"><div class="progress-bar"><div id="prog-disclosure-bar"></div></div><span class="progress-text" id="prog-disclosure-text"></span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>🎪 Loveland Festival</h3><span class="tag tag-green">Comprado</span></div>
+          <div class="kv"><span class="k">Datas</span><span class="v">08/08 e 09/08/2026</span></div>
+          <div class="kv"><span class="k">Cidade</span><span class="v">Amsterdã (Sloterpark)</span></div>
+          <div class="kv"><span class="k">Estação de conexão</span><span class="v">Amsterdam Sloterdijk</span></div>
+          <h4>🚌 Como chegar</h4>
+          <ul>
+            <li><b>Ida econômica:</b> a pé até Roelof Hartplein → Tram 12 até Frederik Hendrikplantsoen → Ônibus 18 até Robert Fruinlaan.</li>
+            <li><b>Ida rápida:</b> Uber/Bolt direto do hotel até a Estação Sloterdijk (15-20 min, €15-25). Na estação, embarcar no shuttle oficial do festival ("Pendelbus", sinalização amarela).</li>
+            <li><b>Volta:</b> shuttle oficial dentro do Sloterpark até Sloterdijk (evita trânsito bloqueado e Uber de até €80). De Sloterdijk, trem comum ou Uber até o hotel.</li>
+          </ul>
+          <h4>🚫 O que pode e não pode levar</h4>
+          <ul>
+            <li><b>Permitido:</b> cigarros/tabaco para uso próprio (só nas pistas abertas, proibido em tendas cobertas), isqueiro comum, power bank, protetor solar em creme (embalagem pequena), chicletes/balas lacradas de fábrica.</li>
+            <li><b>Proibido (retido na revista, sem devolução):</b> qualquer entorpecente incluindo maconha e trufas (tolerância zero), comida e bebida, mochilas/bolsas maiores que uma folha A4, guarda-chuva, spray/aerossol.</li>
+          </ul>
+          <h4>Checklist</h4>
+          <ul class="checklist" data-group="loveland">
+            <li class="check-item"><input type="checkbox" id="chk-lov-0" data-check="loveland-0"><label for="chk-lov-0">Ingresso de cada dia</label></li>
+
+            <li class="check-item"><input type="checkbox" id="chk-lov-1" data-check="loveland-1"><label for="chk-lov-1">Documento</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lov-2" data-check="loveland-2"><label for="chk-lov-2">Rota de ida</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lov-3" data-check="loveland-3"><label for="chk-lov-3">Rota de volta</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lov-4" data-check="loveland-4"><label for="chk-lov-4">Previsão do tempo</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lov-5" data-check="loveland-5"><label for="chk-lov-5">Capa de chuva descartável (sem guarda-chuva)</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lov-6" data-check="loveland-6"><label for="chk-lov-6">Power bank carregado</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lov-7" data-check="loveland-7"><label for="chk-lov-7">Bolsa pequena (máx. tamanho A4)</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lov-8" data-check="loveland-8"><label for="chk-lov-8">Horário de saída do hotel definido</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lov-9" data-check="loveland-9"><label for="chk-lov-9">Valor separado para alimentação e bebidas</label></li>
+          </ul>
+          <div class="progress-wrap"><div class="progress-bar"><div id="prog-loveland-bar"></div></div><span class="progress-text" id="prog-loveland-text"></span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>🌿 Guia local — Amsterdã</h3></div>
+          <p style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">Cannabis em coffeeshops e trufas mágicas em smartshops são atividades legais e reguladas na Holanda.</p>
+          <h4>Coffeeshops por região</h4>
+          <ul>
+            <li><b>De Pijp (perto do hotel):</b> Club Media (Gerard Doustraat 85), Katsu (Eerste van der Helststraat 70), Program (Daniël Stalpertstraat 78).</li>
+            <li><b>Trajeto central / canais:</b> Superskunk (Prinsengracht 480), Get Down (Korte Leidsedwarsstraat 77).</li>
+            <li><b>Perto da Casa de Anne Frank (Jordaan):</b> La Tertulia (Prinsengracht 312).</li>
+          </ul>
+          <h4>Regras de ouro</h4>
+          <ul>
+            <li>Passaporte físico é exigido na entrada de qualquer coffeeshop.</li>
+            <li>Para sentar às mesas, é obrigatório comprar algo no balcão — nenhum coffeeshop vende álcool.</li>
+            <li>Proibido por lei fumar na rua em áreas centrais/turísticas — consumir dentro do estabelecimento ou em áreas afastadas de parques (Vondelpark), longe de famílias.</li>
+            <li>Evitar pre-rolls comerciais (costumam vir com tabaco); preferir a erva pura. Sativa de dia (energia), evitar Indica pura (dá sono).</li>
+            <li>MDMA/cristal/ecstasy são ilegais e não vendidos em coffeeshops — nunca comprar de traficantes de rua (risco de substância adulterada).</li>
+          </ul>
+          <h4>Trufas mágicas (psilocibina)</h4>
+          <p style="font-size:13.5px;">Venda 100% legal em smartshops. Recomendado: <b>Kokopelli</b> (Warmoesstraat 12). Consumir em jejum leve de 3-4h, em ambiente calmo (parque), para evitar náusea.</p>
+          <h4>Compras vintage</h4>
+          <ul>
+            <li><b>Waterlooplein Market:</b> seg-sáb, 09h30-18h00 (fechado domingo), próx. ao bairro Nieuwmarkt.</li>
+            <li><b>9 Straatjes (Jordaan):</b> Episode, Bij Ons Vintage.</li>
+            <li><b>Oud-West / Haarlemmerdijk:</b> Rumors Vintage & Design, Zipper.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>🏛️ Museu Anne Frank</h3><span class="confirm-badge">Conferir ingresso</span></div>
+          <div class="kv"><span class="k">Cidade</span><span class="v">Amsterdã</span></div>
+          <div class="kv"><span class="k">Data e horário previstos</span><span class="v">07/08/2026, 19h45</span></div>
+          <div class="kv"><span class="k">Endereço</span><span class="v">Westermarkt 20</span></div>
+          <div class="alert-card alert-red"><span class="num">⚠️</span><span><b>Horário estrito de ingresso — confirmar se o bilhete já está comprado (venda online, costuma esgotar).</b></span></div>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           SEÇÃO: ORÇAMENTO
+           ===================================================== -->
+      <section class="view" id="sec-orcamento" data-nav-label="Orçamento">
+        <div class="section-head">
+          <p class="eyebrow">Controle financeiro</p>
+          <h2>Orçamento</h2>
+          <p class="desc">Budget total disponível para gastos do casal: <b>€ 3.500,00</b> — usado em alimentação, transporte local, gasolina, pedágio, estacionamento, bebidas, festas extras, compras, presentes, atrações e emergências.</p>
+        </div>
+
+        <div class="card">
+          <h3>Categorias planejadas</h3>
+          <div class="bar-row"><span class="lbl">Alimentação</span><div class="track"><div style="width:25.7%"></div></div><span class="amt">€ 900</span></div>
+          <div class="bar-row"><span class="lbl">Transporte local</span><div class="track"><div style="width:7.1%"></div></div><span class="amt">€ 250</span></div>
+          <div class="bar-row"><span class="lbl">Gasolina</span><div class="track"><div style="width:5.1%"></div></div><span class="amt">€ 180</span></div>
+          <div class="bar-row"><span class="lbl">Pedágios</span><div class="track"><div style="width:2.3%"></div></div><span class="amt">€ 80</span></div>
+          <div class="bar-row"><span class="lbl">Estacionamento</span><div class="track"><div style="width:2.9%"></div></div><span class="amt">€ 100</span></div>
+          <div class="bar-row"><span class="lbl">Bebidas e festas extras</span><div class="track"><div style="width:14.3%"></div></div><span class="amt">€ 500</span></div>
+          <div class="bar-row"><span class="lbl">Compras e presentes</span><div class="track"><div style="width:17.1%"></div></div><span class="amt">€ 600</span></div>
+          <div class="bar-row"><span class="lbl">Passeios e ingressos extras</span><div class="track"><div style="width:8.6%"></div></div><span class="amt">€ 300</span></div>
+          <div class="bar-row"><span class="lbl">Reserva de segurança</span><div class="track"><div style="width:16.9%"></div></div><span class="amt">€ 590</span></div>
+          <div class="bar-row" style="border-top:1px solid var(--border); padding-top:8px; margin-top:4px;"><span class="lbl" style="font-weight:800; color:var(--heading);">Total</span><div class="track" style="visibility:hidden;"></div><span class="amt" style="font-weight:800;">€ 3.500</span></div>
+        </div>
+
+        <div class="card">
+          <h3>💱 Câmbio manual</h3>
+          <div class="field" style="max-width:220px;">
+            <label for="exchangeRateInput">1 euro (€) = quantos reais (R$)?</label>
+            <input type="number" step="0.01" min="0" id="exchangeRateInput" placeholder="Ex: 6,10">
+          </div>
+          <p style="font-size:12px; color:var(--text-muted); margin-top:6px;">Usado para converter lançamentos em reais no resumo abaixo. Lançamentos em dólar não são convertidos automaticamente.</p>
+        </div>
+
+        <div class="card">
+          <h3>➕ Lançar despesa</h3>
+          <form class="exp-form" id="expenseForm">
+            <div class="field"><label for="expDate">Data</label><input type="date" id="expDate" required></div>
+            <div class="field"><label for="expCity">Cidade</label>
+              <select id="expCity">
+                <option>Recife</option><option>Madrid</option><option>Palma</option><option>Cala d'Or</option>
+                <option>Roma</option><option>Castromediano</option><option>Monopoli</option><option>Amsterdã</option><option>Outra</option>
+              </select>
+            </div>
+            <div class="field"><label for="expCategory">Categoria</label>
+              <select id="expCategory">
+                <option value="Alimentação">Alimentação</option><option value="Transporte">Transporte</option>
+                <option value="Bebida">Bebida</option><option value="Festa">Festa</option>
+                <option value="Compras">Compras</option><option value="Presente">Presente</option>
+                <option value="Gasolina">Gasolina</option><option value="Pedágio">Pedágio</option>
+                <option value="Estacionamento">Estacionamento</option><option value="Saúde">Saúde</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+            <div class="field"><label for="expPayer">Quem pagou</label>
+              <select id="expPayer"><option>Fernando</option><option>Letícia</option><option>Ambos (dividido)</option></select>
+            </div>
+            <div class="field full"><label for="expDesc">Descrição</label><input type="text" id="expDesc" placeholder="Ex: jantar em Otranto" required></div>
+            <div class="field"><label for="expValue">Valor</label><input type="number" step="0.01" min="0" id="expValue" required></div>
+            <div class="field"><label for="expCurrency">Moeda</label><select id="expCurrency"><option value="EUR">Euro (€)</option><option value="BRL">Real (R$)</option><option value="USD">Dólar ($)</option></select></div>
+            <div class="field"><label for="expPayment">Forma de pagamento</label>
+              <select id="expPayment"><option>Cartão de crédito</option><option>Cartão Wise</option><option>Dinheiro</option><option>Pix</option><option>Outro</option></select>
+            </div>
+            <div class="field full"><label for="expNote">Observação (opcional)</label><input type="text" id="expNote"></div>
+            <div class="full"><button type="submit" class="btn btn-gold">Adicionar despesa</button></div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>📋 Despesas lançadas</h3>
+          <div class="exp-table-wrap">
+            <table class="exp-table">
+              <thead><tr><th>Data</th><th>Cidade</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Pagou</th><th></th></tr></thead>
+              <tbody id="expenseTableBody"></tbody>
+            </table>
+          </div>
+          <p class="empty-hint" id="expenseEmptyHint">Nenhuma despesa lançada ainda.</p>
+        </div>
+
+        <div class="card">
+          <h3>📊 Resumo</h3>
+          <div class="summary-grid">
+            <div class="summary-box"><span class="lbl">Total gasto (€)</span><div class="val" id="sumTotalGasto">€ 0,00</div></div>
+            <div class="summary-box"><span class="lbl">Saldo restante (€)</span><div class="val" id="sumSaldo">€ 3.500,00</div></div>
+            <div class="summary-box"><span class="lbl">Média diária real</span><div class="val" id="sumMediaDiaria">—</div></div>
+            <div class="summary-box"><span class="lbl">Não convertido (USD)</span><div class="val" id="sumUsd">$ 0,00</div></div>
+          </div>
+          <div class="grid-2" style="margin-top:14px;">
+            <div>
+              <h4>Gasto por cidade</h4>
+              <div id="sumPorCidade" class="empty-hint">Sem lançamentos.</div>
+            </div>
+            <div>
+              <h4>Gasto por categoria</h4>
+              <div id="sumPorCategoria" class="empty-hint">Sem lançamentos.</div>
+            </div>
+          </div>
+          <div class="grid-2" style="margin-top:10px;">
+            <div class="summary-box"><span class="lbl">Gasto por Fernando</span><div class="val" id="sumFernando" style="font-size:17px;">€ 0,00</div></div>
+            <div class="summary-box"><span class="lbl">Gasto por Letícia</span><div class="val" id="sumLeticia" style="font-size:17px;">€ 0,00</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           SEÇÃO: MALA
+           ===================================================== -->
+      <section class="view" id="sec-mala" data-nav-label="Mala">
+        <div class="section-head">
+          <p class="eyebrow">O que levar</p>
+          <h2>Checklist de mala</h2>
+          <p class="desc">Roupas sugeridas para ≈ 21 dias, com lavagem durante a viagem.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>👕 Roupas</h3><div class="progress-wrap" style="width:180px;"><div class="progress-bar"><div id="prog-roupas-bar"></div></div><span class="progress-text" id="prog-roupas-text"></span></div></div>
+          <ul class="checklist" data-group="roupas">
+            <li class="check-item"><input type="checkbox" id="chk-roupas-0" data-check="roupas-0"><label for="chk-roupas-0">7 camisetas</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-1" data-check="roupas-1"><label for="chk-roupas-1">2 camisas mais arrumadas</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-2" data-check="roupas-2"><label for="chk-roupas-2">3 bermudas</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-3" data-check="roupas-3"><label for="chk-roupas-3">1 calça jeans</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-4" data-check="roupas-4"><label for="chk-roupas-4">1 calça leve</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-5" data-check="roupas-5"><label for="chk-roupas-5">1 moletom leve</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-6" data-check="roupas-6"><label for="chk-roupas-6">1 corta-vento</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-7" data-check="roupas-7"><label for="chk-roupas-7">8 a 10 cuecas</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-8" data-check="roupas-8"><label for="chk-roupas-8">7 a 8 pares de meia</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-9" data-check="roupas-9"><label for="chk-roupas-9">2 pijamas</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-10" data-check="roupas-10"><label for="chk-roupas-10">3 sungas</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-11" data-check="roupas-11"><label for="chk-roupas-11">1 tênis confortável</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-12" data-check="roupas-12"><label for="chk-roupas-12">1 chinelo</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-13" data-check="roupas-13"><label for="chk-roupas-13">1 sandália (opcional)</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-14" data-check="roupas-14"><label for="chk-roupas-14">1 roupa para festas</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-15" data-check="roupas-15"><label for="chk-roupas-15">1 cinto</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-16" data-check="roupas-16"><label for="chk-roupas-16">1 boné</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-roupas-17" data-check="roupas-17"><label for="chk-roupas-17">Óculos de sol</label></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>🧴 Higiene</h3><div class="progress-wrap" style="width:180px;"><div class="progress-bar"><div id="prog-higiene-bar"></div></div><span class="progress-text" id="prog-higiene-text"></span></div></div>
+          <ul class="checklist" data-group="higiene">
+            <li class="check-item"><input type="checkbox" id="chk-hig-0" data-check="higiene-0"><label for="chk-hig-0">Escova de dentes</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-1" data-check="higiene-1"><label for="chk-hig-1">Pasta de dente</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-2" data-check="higiene-2"><label for="chk-hig-2">Fio dental</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-3" data-check="higiene-3"><label for="chk-hig-3">Desodorante</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-4" data-check="higiene-4"><label for="chk-hig-4">Perfume pequeno</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-5" data-check="higiene-5"><label for="chk-hig-5">Shampoo pequeno</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-6" data-check="higiene-6"><label for="chk-hig-6">Condicionador pequeno</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-7" data-check="higiene-7"><label for="chk-hig-7">Sabonete</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-8" data-check="higiene-8"><label for="chk-hig-8">Hidratante</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-9" data-check="higiene-9"><label for="chk-hig-9">Protetor solar</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-10" data-check="higiene-10"><label for="chk-hig-10">Protetor labial</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-11" data-check="higiene-11"><label for="chk-hig-11">Aparelho de barbear</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-12" data-check="higiene-12"><label for="chk-hig-12">Lâminas</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-13" data-check="higiene-13"><label for="chk-hig-13">Pente</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-14" data-check="higiene-14"><label for="chk-hig-14">Lenços</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-hig-15" data-check="higiene-15"><label for="chk-hig-15">Álcool em gel</label></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>🔌 Eletrônicos</h3><div class="progress-wrap" style="width:180px;"><div class="progress-bar"><div id="prog-eletronicos-bar"></div></div><span class="progress-text" id="prog-eletronicos-text"></span></div></div>
+          <ul class="checklist" data-group="eletronicos">
+            <li class="check-item"><input type="checkbox" id="chk-ele-0" data-check="eletronicos-0"><label for="chk-ele-0">Celular</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-ele-1" data-check="eletronicos-1"><label for="chk-ele-1">Carregador</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-ele-2" data-check="eletronicos-2"><label for="chk-ele-2">Cabo reserva</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-ele-3" data-check="eletronicos-3"><label for="chk-ele-3">Adaptador universal</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-ele-4" data-check="eletronicos-4"><label for="chk-ele-4">Power bank</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-ele-5" data-check="eletronicos-5"><label for="chk-ele-5">Fones de ouvido</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-ele-6" data-check="eletronicos-6"><label for="chk-ele-6">Relógio</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-ele-7" data-check="eletronicos-7"><label for="chk-ele-7">Carregador do relógio</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-ele-8" data-check="eletronicos-8"><label for="chk-ele-8">AirTag ou rastreador</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-ele-9" data-check="eletronicos-9"><label for="chk-ele-9">Extensão pequena (opcional)</label></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>🧳 Estratégia da mala</h3>
+          <ul class="checklist" data-group="malaestrategia">
+            <li class="check-item"><input type="checkbox" id="chk-est-0" data-check="malaestrategia-0"><label for="chk-est-0">Deixar ≈ 30% a 40% da mala vazia para compras</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-est-1" data-check="malaestrategia-1"><label for="chk-est-1">Usar organizadores</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-est-2" data-check="malaestrategia-2"><label for="chk-est-2">Colocar roupa íntima na almofada de pescoço apenas se permitido pela companhia</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-est-3" data-check="malaestrategia-3"><label for="chk-est-3">Conferir peso e dimensões em cada companhia</label></li>
+          </ul>
+          <div class="alert-card alert-red"><span class="num">⚠️</span><span><b>CONFIRMAR BAGAGEM EM CADA BILHETE.</b> Não considerar automaticamente que todas as companhias aceitam bolsa de 10 kg, mala de 10 kg, mochila e almofada.</span></div>
+        </div>
+
+        <div class="card">
+          <h3>🧺 Lavanderia</h3>
+          <p style="font-size:13.5px;"><b>Sugestão:</b> primeira lavagem em Roma ou Castromediano; segunda lavagem em Amsterdã.</p>
+          <p style="font-size:13.5px;"><b>Itens prioritários:</b> cuecas, meias, camisetas, roupas de praia.</p>
+          <ul class="checklist" data-group="lavanderia">
+            <li class="check-item"><input type="checkbox" id="chk-lav-0" data-check="lavanderia-0"><label for="chk-lav-0">Verificar máquina na hospedagem</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lav-1" data-check="lavanderia-1"><label for="chk-lav-1">Confirmar detergente</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lav-2" data-check="lavanderia-2"><label for="chk-lav-2">Separar saco de roupa suja</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lav-3" data-check="lavanderia-3"><label for="chk-lav-3">Deixar secar completamente</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-lav-4" data-check="lavanderia-4"><label for="chk-lav-4">Evitar lavar na véspera de mudança de cidade</label></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           SEÇÃO: DOCUMENTOS
+           ===================================================== -->
+      <section class="view" id="sec-documentos" data-nav-label="Documentos">
+        <div class="section-head">
+          <p class="eyebrow">Não esquecer</p>
+          <h2>Checklist de documentos</h2>
+        </div>
+        <div class="card">
+          <div class="card-row"><h3>Documentos e reservas</h3><div class="progress-wrap" style="width:180px;"><div class="progress-bar"><div id="prog-documentos-bar"></div></div><span class="progress-text" id="prog-documentos-text"></span></div></div>
+          <ul class="checklist" data-group="documentos">
+            <li class="check-item"><input type="checkbox" id="chk-doc-0" data-check="documentos-0"><label for="chk-doc-0">Passaporte</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-1" data-check="documentos-1"><label for="chk-doc-1">Passagem Recife → Madrid</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-2" data-check="documentos-2"><label for="chk-doc-2">Passagem Madrid → Palma</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-3" data-check="documentos-3"><label for="chk-doc-3">Passagem Palma → Roma</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-4" data-check="documentos-4"><label for="chk-doc-4">Trem Roma → Bari</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-5" data-check="documentos-5"><label for="chk-doc-5">Passagem Bari → Amsterdã</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-6" data-check="documentos-6"><label for="chk-doc-6">Passagem Amsterdã → Madrid</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-7" data-check="documentos-7"><label for="chk-doc-7">Passagem Madrid → Recife</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-8" data-check="documentos-8"><label for="chk-doc-8">Reservas de hospedagem</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-9" data-check="documentos-9"><label for="chk-doc-9">Reserva do carro</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-10" data-check="documentos-10"><label for="chk-doc-10">CNH</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-11" data-check="documentos-11"><label for="chk-doc-11">PID</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-12" data-check="documentos-12"><label for="chk-doc-12">Seguro viagem</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-13" data-check="documentos-13"><label for="chk-doc-13">Cartão Wise</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-14" data-check="documentos-14"><label for="chk-doc-14">Cartão de crédito reserva</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-15" data-check="documentos-15"><label for="chk-doc-15">Dinheiro em espécie</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-16" data-check="documentos-16"><label for="chk-doc-16">Ingressos Disclosure</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-17" data-check="documentos-17"><label for="chk-doc-17">Ingressos Loveland</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-18" data-check="documentos-18"><label for="chk-doc-18">Ingresso Anne Frank</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-19" data-check="documentos-19"><label for="chk-doc-19">Cópia digital dos documentos</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-20" data-check="documentos-20"><label for="chk-doc-20">Cópia impressa das reservas</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-21" data-check="documentos-21"><label for="chk-doc-21">Contatos de emergência</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-doc-22" data-check="documentos-22"><label for="chk-doc-22">Endereço das hospedagens</label></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           SEÇÃO: REMÉDIOS
+           ===================================================== -->
+      <section class="view" id="sec-remedios" data-nav-label="Remédios">
+        <div class="section-head">
+          <p class="eyebrow">Farmácia de viagem</p>
+          <h2>Remédios e primeiros socorros</h2>
+        </div>
+
+        <div class="alert-card alert-yellow">
+          <span class="num">ℹ️</span>
+          <span>Leve apenas medicamentos que você já conhece e pode usar com segurança. Consulte médico ou farmacêutico antes da viagem. Este guia não fornece orientação médica personalizada.</span>
+        </div>
+        <div class="alert-card alert-red">
+          <span class="num">🚫</span>
+          <span><b>NÃO USAR IBUPROFENO SEM ORIENTAÇÃO MÉDICA</b> — reação relatada anteriormente.</span>
+        </div>
+
+        <div class="card">
+          <div class="card-row"><h3>Checklist</h3><div class="progress-wrap" style="width:180px;"><div class="progress-bar"><div id="prog-remedios-bar"></div></div><span class="progress-text" id="prog-remedios-text"></span></div></div>
+          <ul class="checklist" data-group="remedios">
+            <li class="check-item"><input type="checkbox" id="chk-rem-0" data-check="remedios-0"><label for="chk-rem-0">Analgésico já conhecido</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-1" data-check="remedios-1"><label for="chk-rem-1">Antialérgico já conhecido</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-2" data-check="remedios-2"><label for="chk-rem-2">Medicamento para enjoo</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-3" data-check="remedios-3"><label for="chk-rem-3">Medicamento para gases</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-4" data-check="remedios-4"><label for="chk-rem-4">Medicamento para azia</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-5" data-check="remedios-5"><label for="chk-rem-5">Sais de reidratação</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-6" data-check="remedios-6"><label for="chk-rem-6">Soro fisiológico</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-7" data-check="remedios-7"><label for="chk-rem-7">Pastilhas para garganta</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-8" data-check="remedios-8"><label for="chk-rem-8">Curativos</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-9" data-check="remedios-9"><label for="chk-rem-9">Gaze</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-10" data-check="remedios-10"><label for="chk-rem-10">Esparadrapo</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-11" data-check="remedios-11"><label for="chk-rem-11">Antisséptico pequeno</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-12" data-check="remedios-12"><label for="chk-rem-12">Termômetro</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-13" data-check="remedios-13"><label for="chk-rem-13">Repelente</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-14" data-check="remedios-14"><label for="chk-rem-14">Protetor solar</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-15" data-check="remedios-15"><label for="chk-rem-15">Medicamentos pessoais</label></li>
+            <li class="check-item"><input type="checkbox" id="chk-rem-16" data-check="remedios-16"><label for="chk-rem-16">Receitas médicas, se aplicável</label></li>
+          </ul>
+        </div>
+        <div class="alert-card alert-yellow"><span class="num">ℹ️</span><span>Não transportar medicamentos controlados sem receita e documentação adequada.</span></div>
+      </section>
+
+      <!-- =====================================================
+           SEÇÃO: ALERTAS
+           ===================================================== -->
+      <section class="view" id="sec-alertas" data-nav-label="Alertas">
+        <div class="section-head">
+          <p class="eyebrow">Não esquecer nunca</p>
+          <h2>Alertas importantes</h2>
+        </div>
+
+        <h3>🔴 Alertas vermelhos</h3>
+        <div class="alert-card alert-red"><span class="num">1</span><span>Conexão Madrid → Palma é com passagem separada.</span></div>
+        <div class="alert-card alert-red"><span class="num">2</span><span>Confirmar terminal da Ryanair.</span></div>
+        <div class="alert-card alert-red"><span class="num">3</span><span>Chegar cedo ao aeroporto.</span></div>
+        <div class="alert-card alert-red"><span class="num">4</span><span>Confirmar regras de bagagem de cada companhia.</span></div>
+        <div class="alert-card alert-red"><span class="num">5</span><span>Não usar Leonardo Express para ir ao Airbnb em Roma.</span></div>
+        <div class="alert-card alert-red"><span class="num">6</span><span>Pegar o trem FL1 e descer em Roma Ostiense.</span></div>
+        <div class="alert-card alert-red"><span class="num">7</span><span>Trem para Bari sai de Roma Termini, não de Ostiense.</span></div>
+        <div class="alert-card alert-red"><span class="num">8</span><span>Sair do Airbnb cedo no dia 31/07.</span></div>
+        <div class="alert-card alert-red"><span class="num">9</span><span>Confirmar a locadora real no voucher DiscoverCars.</span></div>
+        <div class="alert-card alert-red"><span class="num">10</span><span>Devolver o carro antes das 14h no dia 06/08.</span></div>
+        <div class="alert-card alert-red"><span class="num">11</span><span>Evitar ZTL nas cidades italianas.</span></div>
+        <div class="alert-card alert-red"><span class="num">12</span><span>Não dirigir após beber.</span></div>
+        <div class="alert-card alert-red"><span class="num">13</span><span>Confirmar Museu Anne Frank.</span></div>
+        <div class="alert-card alert-red"><span class="num">14</span><span>Confirmar beach club.</span></div>
+        <div class="alert-card alert-red"><span class="num">15</span><span>Fazer check-in online de todos os voos.</span></div>
+
+        <h3 style="margin-top:22px;">🟡 Alertas amarelos</h3>
+        <div class="alert-card alert-yellow"><span class="num">•</span><span>Baixar mapas offline.</span></div>
+        <div class="alert-card alert-yellow"><span class="num">•</span><span>Salvar bilhetes na carteira do celular.</span></div>
+        <div class="alert-card alert-yellow"><span class="num">•</span><span>Tirar print dos QR Codes.</span></div>
+        <div class="alert-card alert-yellow"><span class="num">•</span><span>Manter documentos em dois lugares.</span></div>
+        <div class="alert-card alert-yellow"><span class="num">•</span><span>Dividir dinheiro e cartões.</span></div>
+        <div class="alert-card alert-yellow"><span class="num">•</span><span>Abastecer o carro antes da devolução.</span></div>
+        <div class="alert-card alert-yellow"><span class="num">•</span><span>Fotografar o carro.</span></div>
+        <div class="alert-card alert-yellow"><span class="num">•</span><span>Carregar power bank.</span></div>
+        <div class="alert-card alert-yellow"><span class="num">•</span><span>Verificar clima diariamente.</span></div>
+        <div class="alert-card alert-yellow"><span class="num">•</span><span>Confirmar endereço das hospedagens.</span></div>
+      </section>
+
+      <!-- =====================================================
+           SEÇÃO: ANOTAÇÕES
+           ===================================================== -->
+      <section class="view" id="sec-anotacoes" data-nav-label="Anotações">
+        <div class="section-head">
+          <p class="eyebrow">Espaço livre</p>
+          <h2>Anotações</h2>
+          <p class="desc">Tudo aqui é salvo automaticamente no navegador (localStorage).</p>
+        </div>
+
+        <div class="card">
+          <h3>📝 Anotações por cidade</h3>
+          <div class="grid-2" id="cityNotesGrid">
+            <!-- gerado via JS a partir de NOTE_CITIES -->
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>⭐ Lugares favoritos</h3>
+          <textarea class="note-area" data-note="favoritos" placeholder="Anote aqui os lugares que mais gostaram..."></textarea>
+        </div>
+        <div class="card">
+          <h3>🍽️ Restaurantes encontrados</h3>
+          <textarea class="note-area" data-note="restaurantes" placeholder="Registre bons restaurantes descobertos pelo caminho..."></textarea>
+        </div>
+        <div class="card">
+          <h3>🛍️ Lista de compras</h3>
+          <textarea class="note-area" data-note="compras" placeholder="O que pretendem comprar..."></textarea>
+        </div>
+        <div class="card">
+          <h3>🎁 Lista de presentes</h3>
+          <textarea class="note-area" data-note="presentes" placeholder="Presentes para levar de volta..."></textarea>
+        </div>
+        <div class="card">
+          <h3>📔 Diário da viagem</h3>
+          <textarea class="note-area" style="min-height:180px;" data-note="diario" placeholder="Registre os melhores momentos de cada dia..."></textarea>
+        </div>
+
+        <div class="card" style="border-color:var(--gold);">
+          <h3>💾 Dados do aplicativo</h3>
+          <p style="font-size:13.5px; color:var(--text-muted);">Tudo o que você preenche (despesas, checklists, anotações, campos editados) fica salvo neste navegador. Use os botões abaixo para fazer backup, transferir para outro aparelho ou recomeçar do zero.</p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+            <button class="btn btn-navy" id="btnExportJson" type="button">⬇️ Exportar JSON</button>
+            <button class="btn btn-outline" id="btnImportJsonTrigger" type="button">⬆️ Importar JSON</button>
+            <input type="file" id="btnImportJson" accept="application/json,.json" style="display:none;">
+            <button class="btn btn-danger" id="btnRestoreDefaults" type="button">♻️ Restaurar dados iniciais</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- FIM DAS SEÇÕES -->
+    </main>
+  </div>
+</div>
+
+<!-- NAV INFERIOR (mobile) -->
+<nav class="app-nav-mobile no-print" id="navMobile"></nav>
+
+<!-- MODAIS -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box" id="modalBox"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =============================================================
+   EUROTRIP 2026 — script único
+   Índice deste bloco:
+     A. Dados fixos (roteiro, ícones, datas-chave)
+     B. Estado (localStorage) + helpers de formatação/segurança
+     C. Renderização (nav, roteiro, notas, editáveis, checklists)
+     D. Orçamento (despesas, resumos)
+     E. Busca interna
+     F. Ações de cabeçalho (Hoje, Próximo compromisso, contagem)
+     G. Dados do app (exportar / importar / restaurar) e modais
+     H. Inicialização
+   ============================================================= */
+
+/* ---------- A. DADOS FIXOS ---------- */
+const STORAGE_KEY = "eurotrip2026_v1";
+
+const ICONS = {
+  "sec-inicio":"🏠","sec-roteiro":"🗓️","sec-transportes":"🚗","sec-hospedagens":"🏨",
+  "sec-puglia":"🍇","sec-eventos":"🎉","sec-orcamento":"💶","sec-mala":"🧳",
+  "sec-documentos":"📄","sec-remedios":"💊","sec-alertas":"⚠️","sec-anotacoes":"📝"
+};
+
+const ROUTE_STOPS = ["Recife","Madrid","Maiorca","Roma","Bari","Castromediano","Monopoli","Amsterdã","Madrid","Recife"];
+
+const NOTE_CITIES = [
+  {key:"city-madrid", label:"Madrid"},
+  {key:"city-palma", label:"Palma"},
+  {key:"city-caladoor", label:"Cala d'Or"},
+  {key:"city-roma", label:"Roma"},
+  {key:"city-castromediano", label:"Castromediano"},
+  {key:"city-monopoli", label:"Monopoli"},
+  {key:"city-amsterda", label:"Amsterdã"}
+];
+
+// Roteiro geral — 22 dias (23/07/2026 a 13/08/2026)
+const ITINERARY = [
+  {date:"2026-07-23", region:"Recife", place:"Recife → Madrid", title:"Embarque para a Europa", tags:["Voo"],
+    items:["Voo Recife → Madrid (Iberia IB0140, via Voe Rotas).","Dormir no avião durante o trajeto.","Chegar ao Aeroporto Internacional do Recife com no mínimo 3 horas de antecedência.","Horário de saída: 17h10 (chegada em Madrid 24/07 às 06h15)."]},
+  {date:"2026-07-24", region:"Palma", place:"Madrid → Palma de Maiorca", title:"Chegada à Europa e conexão para Maiorca", tags:["Voo","Evento"],
+    items:["Chegada a Madrid por volta de 06h30.","Conexão Madrid → Palma de Maiorca (Ryanair) — passagens separadas, atenção ao tempo de conexão.","Check-in no Hotel Amic Horizonte, Palma (a partir das 15h00).","À noite: Disclosure na BCM Mallorca (ingresso já comprado)."]},
+  {date:"2026-07-25", region:"Palma", place:"Palma de Maiorca", title:"Dia em Maiorca", tags:["Cidade"],
+    items:["Roteiro local já definido pelo casal — sem passeios adicionais sugeridos aqui."]},
+  {date:"2026-07-26", region:"Cala d'Or", place:"Palma → Cala d'Or", title:"Mudança para Cala d'Or", tags:["Hospedagem"],
+    items:["Check-out do Hotel Amic Horizonte (até 11h00).","Deslocamento até Cala d'Or.","Check-in no Hostal San Francisco, Cala d'Or."]},
+  {date:"2026-07-27", region:"Cala d'Or", place:"Cala d'Or", title:"Dia em Cala d'Or", tags:["Cidade"],
+    items:["Roteiro local já definido pelo casal — sem passeios adicionais sugeridos aqui."]},
+  {date:"2026-07-28", region:"Roma", place:"Cala d'Or → Roma", title:"Voo para Roma", tags:["Voo"],
+    items:["Saída recomendada de Cala d'Or por volta das 13h00.","Meta de chegada ao Aeroporto de Palma: 14h30–14h35.","Voo Palma → Roma Fiumicino (Ryanair), saída 16h35, chegada 18h20.","Transporte do aeroporto até o Airbnb via trem FL1 até Roma Ostiense."]},
+  {date:"2026-07-29", region:"Roma", place:"Roma", title:"Dia em Roma", tags:["Cidade"], items:["Dia livre em Roma."]},
+  {date:"2026-07-30", region:"Roma", place:"Roma", title:"Dia em Roma", tags:["Cidade"], items:["Dia livre em Roma."]},
+  {date:"2026-07-31", region:"Castromediano", place:"Roma → Bari → Lecce (Castromediano)", title:"Trem para Bari e transfer a Lecce", tags:["Trem","Carro"],
+    items:["08h00 — Trem Frecciargento FA8303, Roma Termini → Bari Centrale (chegada 12h41).","12h41–14h30 — Bari Vecchia: Basílica San Nicola, Catedral, orla, panzerotti.","14h30 — Trem local até o Aeroporto de Bari Palese.","~15h00 — Retirada do carro alugado (DiscoverCars).","~16h00 — Saída para Lecce/Castromediano (1h50, ~150 km).","~17h50 — Chegada, check-in no Airbnb. Noite livre — centro histórico + jantar."]},
+  {date:"2026-08-01", region:"Castromediano", place:"Salento (Puglia)", title:"Corredor de Santa Cesarea Terme", tags:["Puglia","Carro"],
+    items:["08h15 — Saída de Lecce/Castromediano.","09h00 — Bagno Marino Archi + Cala Porticciolo (Santa Cesarea Terme), até 15h.","15h15 — Marina Serra (piscina naturale).","17h00 — Ponte Ciolo / Il Ciolo (Gagliano del Capo).","19h00 — Santa Maria di Leuca: jantar e pôr do sol.","Volta a Lecce/Castromediano (~1h05). Total de estrada: ~2h45."]},
+  {date:"2026-08-02", region:"Castromediano", place:"Salento (Puglia)", title:"Lado Jônico: Punta della Suina e Gallipoli", tags:["Puglia","Carro"],
+    items:["09h00 — Saída de Lecce/Castromediano.","09h45 — Punta della Suina — dia de praia (~7h). Considerar toalha/guarda-sol próprio.","17h30 — Gallipoli: Centro Storico + Castelo, pôr do sol e jantar.","Volta a Lecce/Castromediano (~40 min). Total de estrada: ~1h35 — dia mais tranquilo."]},
+  {date:"2026-08-03", region:"Monopoli", place:"Lecce → Melendugno → Ostuni → Monopoli", title:"Melendugno, Ostuni e transfer para Monopoli", tags:["Puglia","Carro","Hospedagem"],
+    items:["09h00 — Check-out em Lecce/Castromediano.","09h30 — Melendugno: Grotta della Poesia → Faraglioni di Sant'Andrea → Torre dell'Orso.","Até 16h15 — Saída de Melendugno (horário inegociável).","17h45 — Ostuni: Borgo Antico Bistrot, pôr do sol (chegar cedo, não aceita reserva).","~20h15 — Saída para Monopoli.","~21h00 — Chegada, check-in noturno no Airbnb. Total de estrada: ~2h35."]},
+  {date:"2026-08-04", region:"Monopoli", place:"Polignano a Mare", title:"Polignano a Mare", tags:["Puglia"],
+    items:["08h00 — Monopoli → Polignano.","08h30–11h00 — Lama Monachile (ir cedo, piso de seixos, levar sapatilha).","11h00–13h00 — Passeio de barco pelas grutas (reservar com antecedência).","13h00–14h30 — Almoço no centro.","14h30–17h00 — Cala Paura (opção menos cheia).","17h00+ — Centro histórico de Polignano ou volta a Monopoli, jantar."]},
+  {date:"2026-08-05", region:"Monopoli", place:"Matera e Alberobello", title:"Matera e Alberobello", tags:["Puglia","Carro"],
+    items:["Ordem: Matera primeiro, Alberobello por último (evita calor e multidão nos trulli).","08h00 — Monopoli → Matera (~1h25-1h30).","09h45–15h00 — Sassi di Matera (manhã inteira + almoço).","15h00 — Matera → Alberobello (~1h10-1h15).","16h15–18h30 — Alberobello (trulli), fim de tarde.","18h30 — Volta a Monopoli (~25 min). Total de estrada: ~3h."]},
+  {date:"2026-08-06", region:"Amsterdã", place:"Monopoli → Bari → Amsterdã", title:"Devolução do carro e voo para Amsterdã", tags:["Voo","Carro"],
+    items:["Manhã livre — dá pra rever a Bari Vecchia (Basílica San Nicola, orla) sem pressa antes do aeroporto.","Saída de Monopoli entre 11h15 e 11h30.","Devolução do carro até 13h00 (não deixar para as 14h00).","Seguir para o terminal — portão por volta de 14h30–14h40.","Voo Bari → Amsterdã, 15h20–19h50 (1 escala em Roma, troca de avião).","Check-in no hotel: 20h00 (The Muse Amsterdam).","21h00 — Coffeeshop Club Media (Gerard Doustraat 85), fumo inicial da viagem.","21h30 — Jantar de abertura na Ferdinand Bolstraat: Geflipt Burgers ou Pizzeria Renato's."]},
+  {date:"2026-08-07", region:"Amsterdã", place:"Amsterdã", title:"Museus, vintage e Anne Frank", tags:["Cidade","Cultura","Evento"],
+    items:["10h00 — Waterlooplein Market: garimpo de jaquetas e casacos vintage (aberto seg–sáb, 09h30–18h00).","12h00 — Almoço leve e parada no Program Coffeeshop (Daniël Stalpertstraat 78).","13h30 — Heineken Experience (Stadhouderskade 78), com 2 chopps inclusos.","15h30 — Compras na Leidsestraat e nas 9 Straatjes (Episode, Bij Ons Vintage).","18h00 — Torta de maçã holandesa no café Winkel 43 (Jordaan).","19h45 — Museu Anne Frank (Westermarkt 20) — horário estrito, chegar no horário do ingresso.","22h00 — Jantar num bruin café à beira do canal, como o Café 't Smalle (Jordaan)."]},
+  {date:"2026-08-08", region:"Amsterdã", place:"Amsterdã", title:"Loveland Festival — Dia 1", tags:["Evento"],
+    items:["10h00 — Brunch proteico no Omelegg de Pijp (Ferdinand Bolstraat 143).","11h30 — Katsu Coffeeshop e relaxar no Vondelpark antes do festival.","13h00 — Voltar ao hotel para pegar óculos de sol, power bank e corta-vento.","13h30 — Uber/Bolt até a Estação Amsterdam Sloterdijk (≈15-20 min, €15-25) e shuttle oficial do Loveland.","14h00 às 23h00 — Loveland Festival, primeiro dia.","23h00 — Shuttle de volta até Sloterdijk (evita trânsito e Uber caro) e transporte até o hotel.","Ver rota completa, o que pode/não pode levar e checklist em Eventos."]},
+  {date:"2026-08-09", region:"Amsterdã", place:"Amsterdã", title:"Loveland Festival — Dia 2", tags:["Evento"],
+    items:["10h30 — Café da manhã reforçado (Baker & Moore ou casa de panquecas), hidratação pesada.","12h00 — Descanso nos arredores do hotel.","13h30 — Uber/Bolt até Sloterdijk (atenção: portões abrem cerca de 1h mais tarde que no sábado).","14h30 às 23h00 — Loveland Festival, segundo dia.","23h30 — Opcional: after em clubs de techno (RADION ou Shelter) — conferir line-up no Resident Advisor."]},
+  {date:"2026-08-10", region:"Amsterdã", place:"Amsterdã", title:"NDSM, arte urbana e Pllek", tags:["Cidade","Cultura"],
+    items:["11h00 — Garimpo em Haarlemmerdijk (Rumors Vintage & Design, Zipper).","13h30 — Balsa pública gratuita nos fundos da Centraal Station até o NDSM-Werf.","14h00 — STRAAT Museum — maior museu de graffiti e arte de rua do mundo.","16h30 — Sunset no restaurante de contêineres Pllek, à beira do rio.","22h00 — Clubbing noturno (Shelter no Norte ou RAUM no circuito industrial)."]},
+  {date:"2026-08-11", region:"Amsterdã", place:"Amsterdã", title:"Trufas mágicas e Foodhallen", tags:["Cidade"],
+    items:["11h30 — Kokopelli (Warmoesstraat 12): escolha orientada de trufas mágicas (psilocibina — venda legal em smartshops na Holanda).","13h00 — Jejum leve de 3-4h e experiência de 4-5h numa área tranquila do Vondelpark ou Rembrandtpark.","18h00 — Jantar de encerramento no Foodhallen, dentro do De Hallen (bairro Oud-West): burgers, tacos, baos e bitterballen."]},
+  {date:"2026-08-12", region:"Madrid", place:"Amsterdã → Madrid", title:"Voo para Madrid", tags:["Voo"],
+    items:["Manhã — últimas compras em De Pijp e no Albert Heijn (Stroopwafels, chocolates Tony's Chocolonely).","Saída recomendada do hotel às 08h00.","Meta de chegada ao aeroporto: 08h45–09h00.","Voo Amsterdã → Madrid, 11h00–13h40.","Hospedagem em Madrid: Hostal Ballesta."]},
+  {date:"2026-08-13", region:"Recife", place:"Madrid → Recife", title:"Volta para casa", tags:["Voo"],
+    items:["Chegar ao aeroporto com 3 horas de antecedência.","Voo Madrid → Recife (Iberia IB0139, via Voe Rotas).","Horário: saída 12h15 de Madrid, chegada 15h40 em Recife."]}
+];
+
+// Datas-chave usadas nos cartões do painel inicial (Início)
+const FLIGHTS_INFO = [
+  {dt:new Date(2026,6,23,17,10), label:"Recife → Madrid"},
+  {dt:new Date(2026,6,24,9,25), label:"Madrid → Palma"},
+  {dt:new Date(2026,6,28,16,35), label:"Palma → Roma"},
+  {dt:new Date(2026,7,6,15,20), label:"Bari → Amsterdã"},
+  {dt:new Date(2026,7,12,11,0), label:"Amsterdã → Madrid"},
+  {dt:new Date(2026,7,13,12,15), label:"Madrid → Recife"}
+];
+const HOTELS_INFO = [
+  {dt:new Date(2026,6,24,15,0), label:"Hotel Amic Horizonte — Palma"},
+  {dt:new Date(2026,6,26,0,0), label:"Hostal San Francisco — Cala d'Or"},
+  {dt:new Date(2026,6,28,20,0), label:"Airbnb — Roma"},
+  {dt:new Date(2026,6,31,16,0), label:"Airbnb — Castromediano"},
+  {dt:new Date(2026,7,3,0,0), label:"Airbnb — Monopoli"},
+  {dt:new Date(2026,7,6,15,0), label:"The Muse Amsterdam Hotel"},
+  {dt:new Date(2026,7,12,0,0), label:"Hostal Ballesta — Madrid"}
+];
+const EVENTS_INFO = [
+  {dt:new Date(2026,6,24,22,0), label:"Disclosure na BCM Mallorca"},
+  {dt:new Date(2026,7,8,0,0), label:"Loveland Festival — Dia 1"},
+  {dt:new Date(2026,7,9,0,0), label:"Loveland Festival — Dia 2"}
+];
+// Compromissos combinados, usados pelo botão "Próximo compromisso"
+const KEY_MOMENTS = [
+  {dt:new Date(2026,6,23,17,10), label:"Voo Recife → Madrid", target:"sec-transportes", anchor:"tr-voos"},
+  {dt:new Date(2026,6,24,9,25), label:"Voo Madrid → Palma", target:"sec-transportes", anchor:"tr-voos"},
+  {dt:new Date(2026,6,24,22,0), label:"Disclosure na BCM Mallorca", target:"sec-eventos"},
+  {dt:new Date(2026,6,26,0,0), label:"Check-in Hostal San Francisco (Cala d'Or)", target:"sec-hospedagens"},
+  {dt:new Date(2026,6,28,16,35), label:"Voo Palma → Roma", target:"sec-transportes", anchor:"tr-voos"},
+  {dt:new Date(2026,6,31,8,0), label:"Trem Roma → Bari", target:"sec-transportes", anchor:"tr-trem"},
+  {dt:new Date(2026,6,31,16,0), label:"Retirada do carro em Bari", target:"sec-transportes", anchor:"tr-carro"},
+  {dt:new Date(2026,7,3,0,0), label:"Check-in em Monopoli", target:"sec-hospedagens"},
+  {dt:new Date(2026,7,6,15,20), label:"Voo Bari → Amsterdã", target:"sec-transportes", anchor:"tr-voos"},
+  {dt:new Date(2026,7,8,0,0), label:"Loveland Festival — Dia 1", target:"sec-eventos"},
+  {dt:new Date(2026,7,9,0,0), label:"Loveland Festival — Dia 2", target:"sec-eventos"},
+  {dt:new Date(2026,7,12,11,0), label:"Voo Amsterdã → Madrid", target:"sec-transportes", anchor:"tr-voos"},
+  {dt:new Date(2026,7,13,12,15), label:"Voo Madrid → Recife", target:"sec-transportes", anchor:"tr-voos"}
+];
+
+/* ---------- B. ESTADO ---------- */
+let STATE = null;
+let STORAGE_OK = true;
+let EDIT_MODE = false;
+
+function defaultState(){
+  return { theme:"light", checklists:{}, itineraryDone:{}, expenses:[], exchangeRate:"", notes:{}, editableFields:{}, itineraryEdits:{} };
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    STATE = defaultState();
+    STATE.theme = parsed.theme || "light";
+    STATE.checklists = parsed.checklists || {};
+    STATE.itineraryDone = parsed.itineraryDone || {};
+    STATE.expenses = Array.isArray(parsed.expenses) ? parsed.expenses : [];
+    STATE.exchangeRate = parsed.exchangeRate || "";
+    STATE.notes = parsed.notes || {};
+    STATE.editableFields = parsed.editableFields || {};
+    STATE.itineraryEdits = parsed.itineraryEdits || {};
+    STORAGE_OK = true;
+  }catch(e){
+    STATE = defaultState();
+    STORAGE_OK = false;
+  }
+}
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+    STORAGE_OK = true;
+  }catch(e){
+    if(STORAGE_OK){ showToast("Não foi possível salvar automaticamente neste navegador. Use \"Exportar JSON\" para não perder seus dados."); }
+    STORAGE_OK = false;
+  }
+}
+
+/* ---------- Helpers gerais ---------- */
+function $(sel, root){ return (root||document).querySelector(sel); }
+function $all(sel, root){ return Array.from((root||document).querySelectorAll(sel)); }
+function escapeHtml(str){
+  if(str===undefined || str===null) return "";
+  return String(str).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+  });
+}
+function formatDateBR(iso){ const p = iso.split("-"); return p[2]+"/"+p[1]+"/"+p[0]; }
+function formatEUR(n){ return "€ " + (n||0).toLocaleString("pt-BR", {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function formatUSD(n){ return "$ " + (n||0).toLocaleString("pt-BR", {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function showToast(msg){
+  const t = $("#toast"); if(!t) return;
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2800);
+}
+function flash(el){ el.classList.add("highlight-flash"); setTimeout(function(){ el.classList.remove("highlight-flash"); }, 1600); }
+function jumpTo(id){ const el = document.getElementById(id); if(el){ el.scrollIntoView({behavior:"smooth", block:"start"}); flash(el); } }
+
+/* ---------- Copiar endereço / abrir mapa (usados via onclick no HTML) ---------- */
+function fallbackCopy(text, cb){
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{ document.execCommand("copy"); cb(); }
+  catch(e){ showToast("Não foi possível copiar automaticamente — selecione o texto manualmente."); }
+  document.body.removeChild(ta);
+}
+function copyAddress(text, btn){
+  const done = function(){ const old = btn.textContent; btn.textContent = "copiado ✓"; setTimeout(function(){ btn.textContent = old; }, 1400); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text, done); });
+  } else { fallbackCopy(text, done); }
+}
+function openMap(address){
+  if(!address || address.toUpperCase().indexOf("A CONFIRMAR") !== -1){ showToast("Endereço ainda não confirmado."); return; }
+  window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address), "_blank", "noopener");
+}
+
+/* ---------- C. RENDERIZAÇÃO ---------- */
+function buildNav(){
+  const sections = $all("#appContent > section.view");
+  const navList = $("#navList"), navMobile = $("#navMobile");
+  sections.forEach(function(sec){
+    const id = sec.id, label = sec.dataset.navLabel || id, icon = ICONS[id] || "•";
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.className = "nav-btn"; btn.type = "button"; btn.dataset.target = id;
+    btn.innerHTML = '<span class="ic">'+icon+'</span><span>'+label+'</span>';
+    btn.addEventListener("click", function(){ showSection(id); });
+    li.appendChild(btn); navList.appendChild(li);
+
+    const mbtn = document.createElement("button");
+    mbtn.className = "nav-btn-m"; mbtn.type = "button"; mbtn.dataset.target = id;
+    mbtn.innerHTML = '<span class="ic">'+icon+'</span><span>'+label+'</span>';
+    mbtn.addEventListener("click", function(){ showSection(id); });
+    navMobile.appendChild(mbtn);
+  });
+}
+function showSection(id){
+  $all(".view").forEach(function(v){ v.classList.toggle("active", v.id===id); });
+  $all(".nav-btn").forEach(function(b){ b.classList.toggle("active", b.dataset.target===id); });
+  $all(".nav-btn-m").forEach(function(b){ b.classList.toggle("active", b.dataset.target===id); });
+  const results = $("#searchResults"); if(results){ results.classList.remove("show"); }
+  window.scrollTo({top:0, behavior:"auto"});
+}
+
+function renderRouteStrip(){
+  const track = $("#routeTrack"); if(!track) return;
+  track.innerHTML = "";
+  ROUTE_STOPS.forEach(function(s, i){
+    const stop = document.createElement("div"); stop.className = "route-stop";
+    stop.innerHTML = '<div class="route-dot"></div><div class="rlabel">'+s+'</div>';
+    track.appendChild(stop);
+    if(i < ROUTE_STOPS.length-1){
+      const line = document.createElement("div"); line.className = "route-line";
+      line.innerHTML = '<span class="plane-ic">✈️</span>';
+      track.appendChild(line);
+    }
+  });
+}
+
+function getEffectiveDay(day){
+  const edit = STATE.itineraryEdits[day.date];
+  if(!edit) return { title:day.title, items:day.items.slice(), edited:false };
+  return {
+    title: (typeof edit.title === "string") ? edit.title : day.title,
+    items: Array.isArray(edit.items) ? edit.items.slice() : day.items.slice(),
+    edited: true
+  };
+}
+function saveItineraryEdit(date, patch){
+  const cur = STATE.itineraryEdits[date] || {};
+  STATE.itineraryEdits[date] = Object.assign({}, cur, patch);
+  saveState();
+}
+function renderItinerary(){
+  const list = $("#itineraryList"); if(!list) return;
+  list.innerHTML = "";
+  ITINERARY.forEach(function(day){
+    const eff = getEffectiveDay(day);
+    const d = new Date(day.date+"T12:00:00");
+    const dayNum = d.getDate();
+    let weekday = d.toLocaleDateString("pt-BR", {weekday:"short"});
+    weekday = weekday.replace(".", "").toUpperCase();
+    const done = !!STATE.itineraryDone[day.date];
+    const card = document.createElement("div");
+    card.className = "card day-card" + (done ? " done" : "");
+    card.dataset.date = day.date; card.dataset.region = day.region;
+    const tagsHtml = day.tags.map(function(t){
+      const cls = t==="Voo" ? "tag-gold" : (t==="Puglia" ? "tag-green" : "");
+      return '<span class="tag '+cls+'">'+t+'</span>';
+    }).join("");
+    const itemsHtml = eff.items.map(function(i, idx){
+      if(EDIT_MODE){
+        return '<li style="font-size:13.5px; display:flex; align-items:flex-start; gap:6px;">'+
+          '<span class="item-editable" contenteditable="true" data-date="'+day.date+'" data-idx="'+idx+'" style="flex:1; outline:none; border-bottom:1px dashed var(--border-strong);">'+escapeHtml(i)+'</span>'+
+          '<button type="button" class="item-del-btn" data-date="'+day.date+'" data-idx="'+idx+'" title="Apagar item" style="flex-shrink:0; border:none; background:none; color:#B33B3B; cursor:pointer; font-size:15px; line-height:1; padding:2px 4px;">✕</button>'+
+        '</li>';
+      }
+      return '<li style="font-size:13.5px;">'+i+'</li>';
+    }).join("");
+    const titleHtml = EDIT_MODE
+      ? '<h3 class="title-editable" contenteditable="true" data-date="'+day.date+'" style="margin-bottom:2px; outline:none; border-bottom:1px dashed var(--border-strong);">'+escapeHtml(eff.title)+'</h3>'
+      : '<h3 style="margin-bottom:2px;">'+eff.title+'</h3>';
+    const addBtnHtml = EDIT_MODE
+      ? '<button type="button" class="item-add-btn" data-date="'+day.date+'" style="margin-top:6px; font-size:12px; border:1px dashed var(--border-strong); background:none; border-radius:8px; padding:4px 10px; cursor:pointer; color:var(--text-muted);">+ adicionar item</button>'
+      : '';
+    const resetBtnHtml = (EDIT_MODE && eff.edited)
+      ? '<button type="button" class="day-reset-btn" data-date="'+day.date+'" style="margin-top:6px; margin-left:6px; font-size:12px; border:1px dashed var(--border-strong); background:none; border-radius:8px; padding:4px 10px; cursor:pointer; color:var(--text-muted);">↺ restaurar original</button>'
+      : '';
+    card.innerHTML =
+      '<div class="day-badge"><div class="num">'+String(dayNum).padStart(2,"0")+'</div><div class="wd">'+weekday+'</div></div>'+
+      '<div style="flex:1; min-width:0;">'+
+        '<div class="card-row"><div><div style="margin-bottom:4px;">'+tagsHtml+(eff.edited?' <span class="tag" style="background:var(--gold); color:#3a2c00;">editado</span>':'')+'</div>'+
+        titleHtml+
+        '<p style="font-size:12.5px; color:var(--text-muted);">'+formatDateBR(day.date)+' · '+day.place+'</p></div>'+
+        '<label class="day-check" style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted);">'+
+        '<input type="checkbox" data-day-check="'+day.date+'" '+(done?"checked":"")+'> concluído</label></div>'+
+        '<ul style="margin-top:6px;">'+itemsHtml+'</ul>'+
+        '<div>'+addBtnHtml+resetBtnHtml+'</div>'+
+      '</div>';
+    list.appendChild(card);
+  });
+  $all("[data-day-check]").forEach(function(cb){
+    cb.addEventListener("change", function(e){
+      STATE.itineraryDone[e.target.dataset.dayCheck] = e.target.checked;
+      saveState();
+      e.target.closest(".day-card").classList.toggle("done", e.target.checked);
+      renderDashboard();
+    });
+  });
+
+  if(EDIT_MODE){
+    $all(".item-editable").forEach(function(el){
+      el.addEventListener("blur", function(){
+        const date = el.dataset.date, idx = Number(el.dataset.idx);
+        const day = ITINERARY.find(function(d){ return d.date===date; });
+        const eff = getEffectiveDay(day);
+        eff.items[idx] = el.textContent;
+        saveItineraryEdit(date, {items: eff.items});
+      });
+    });
+    $all(".title-editable").forEach(function(el){
+      el.addEventListener("blur", function(){
+        saveItineraryEdit(el.dataset.date, {title: el.textContent});
+      });
+    });
+    $all(".item-del-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        const date = btn.dataset.date, idx = Number(btn.dataset.idx);
+        const day = ITINERARY.find(function(d){ return d.date===date; });
+        const eff = getEffectiveDay(day);
+        eff.items.splice(idx, 1);
+        saveItineraryEdit(date, {items: eff.items, title: eff.title});
+        renderItinerary();
+      });
+    });
+    $all(".item-add-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        const date = btn.dataset.date;
+        const day = ITINERARY.find(function(d){ return d.date===date; });
+        const eff = getEffectiveDay(day);
+        eff.items.push("Novo item — toque para editar");
+        saveItineraryEdit(date, {items: eff.items, title: eff.title});
+        renderItinerary();
+      });
+    });
+    $all(".day-reset-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        delete STATE.itineraryEdits[btn.dataset.date];
+        saveState();
+        renderItinerary();
+      });
+    });
+  }
+
+  // popula filtro de cidade
+  const sel = $("#filterCidade");
+  if(sel){
+    const seen = {};
+    ITINERARY.forEach(function(d){
+      if(!seen[d.region]){ seen[d.region]=true; const o=document.createElement("option"); o.value=d.region; o.textContent=d.region; sel.appendChild(o); }
+    });
+  }
+}
+function toggleEditMode(){
+  EDIT_MODE = !EDIT_MODE;
+  const btn = $("#editModeBtn");
+  if(btn){ btn.textContent = EDIT_MODE ? "✅ Concluir edição" : "✏️ Editar roteiro"; btn.classList.toggle("btn-gold", EDIT_MODE); }
+  const hint = $("#editModeHint");
+  if(hint){ hint.style.display = EDIT_MODE ? "block" : "none"; }
+  renderItinerary();
+  if(EDIT_MODE) showToast("Modo de edição ativo: toque no texto para editar, ✕ para apagar.");
+}
+
+function renderCityNotes(){
+  const grid = $("#cityNotesGrid"); if(!grid) return;
+  grid.innerHTML = "";
+  NOTE_CITIES.forEach(function(c){
+    const div = document.createElement("div");
+    div.innerHTML = '<label style="font-size:12.5px;font-weight:700;color:var(--text-muted); display:block; margin-bottom:4px;">'+c.label+'</label>'+
+      '<textarea class="note-area" data-note="'+c.key+'" placeholder="Anotações sobre '+c.label+'..."></textarea>';
+    grid.appendChild(div);
+  });
+}
+function hydrateNotes(){
+  $all("textarea[data-note]").forEach(function(ta){
+    const key = ta.dataset.note;
+    ta.value = STATE.notes[key] || "";
+    let timer;
+    ta.addEventListener("input", function(){
+      clearTimeout(timer);
+      timer = setTimeout(function(){ STATE.notes[key] = ta.value; saveState(); }, 400);
+    });
+  });
+}
+
+function hydrateChecklists(){
+  $all("input[data-check]").forEach(function(cb){
+    const key = cb.dataset.check;
+    cb.checked = !!STATE.checklists[key];
+    const item = cb.closest(".check-item");
+    if(item) item.classList.toggle("checked", cb.checked);
+    cb.addEventListener("change", function(){
+      STATE.checklists[key] = cb.checked;
+      saveState();
+      if(item) item.classList.toggle("checked", cb.checked);
+      updateGroupProgress(cb.closest("[data-group]"));
+      renderDashboard();
+    });
+  });
+  $all("[data-group]").forEach(updateGroupProgress);
+}
+function updateGroupProgress(groupEl){
+  if(!groupEl) return;
+  const group = groupEl.dataset.group;
+  const boxes = $all("input[data-check]", groupEl);
+  const total = boxes.length, done = boxes.filter(function(b){ return b.checked; }).length;
+  const bar = document.getElementById("prog-"+group+"-bar");
+  const text = document.getElementById("prog-"+group+"-text");
+  if(bar) bar.style.width = total ? Math.round(done/total*100)+"%" : "0%";
+  if(text) text.textContent = done+" de "+total+" concluídos";
+}
+
+/* Campos editáveis (endereços/telefones/horários "A CONFIRMAR" e observações) */
+function renderEditableFields(){
+  $all("[data-edit-field]").forEach(function(wrap){
+    const key = wrap.dataset.editField;
+    const def = wrap.dataset.editDefault || "";
+    const stored = STATE.editableFields[key];
+    wrap.dataset.current = (stored !== undefined && stored !== "") ? stored : def;
+    paintEditableField(wrap);
+  });
+}
+function paintEditableField(wrap){
+  const val = wrap.dataset.current || "";
+  const isTbd = val.trim().toUpperCase() === "A CONFIRMAR";
+  const displayVal = val ? escapeHtml(val) : '<span class="empty-hint" style="padding:0;">(vazio — clique em editar)</span>';
+  wrap.innerHTML = '<span class="editable-val '+(isTbd?"is-tbd":"")+'">'+displayVal+'</span> '+
+    '<button class="edit-btn" type="button" data-act="edit-field">✏️ editar</button>';
+}
+function openFieldEditor(wrap){
+  const multiline = wrap.dataset.editMultiline === "1";
+  const val = wrap.dataset.current || "";
+  if(multiline){
+    wrap.innerHTML = '<textarea class="edit-input">'+escapeHtml(val)+'</textarea><br>'+
+      '<button class="btn btn-sm btn-gold" type="button" data-act="save-field">Salvar</button> '+
+      '<button class="btn btn-sm" type="button" data-act="cancel-field">Cancelar</button>';
+  } else {
+    wrap.innerHTML = '<input type="text" class="edit-input" value="'+escapeHtml(val)+'">'+
+      '<button class="btn btn-sm btn-gold" type="button" data-act="save-field">Salvar</button> '+
+      '<button class="btn btn-sm" type="button" data-act="cancel-field">Cancelar</button>';
+  }
+  const input = wrap.querySelector(".edit-input");
+  if(input) input.focus();
+}
+
+/* ---------- D. ORÇAMENTO ---------- */
+function uid(){ return "e"+Date.now()+Math.random().toString(16).slice(2,7); }
+
+function getTripStatus(){
+  const start = new Date(2026,6,23,0,0,0), end = new Date(2026,7,13,23,59,59);
+  const now = new Date();
+  if(now < start){
+    const diff = Math.ceil((start - now) / 86400000);
+    return {phase:"before", days:diff};
+  } else if(now <= end){
+    const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dayNum = Math.floor((todayMid - new Date(2026,6,23)) / 86400000) + 1;
+    return {phase:"during", day:dayNum};
+  }
+  return {phase:"after"};
+}
+function diasDecorridos(){
+  const s = getTripStatus();
+  if(s.phase==="before") return null;
+  if(s.phase==="during") return s.day;
+  return 22;
+}
+function eurEquivalent(entry, rate){
+  if(entry.currency==="EUR") return entry.value;
+  if(entry.currency==="BRL") return rate>0 ? entry.value/rate : null;
+  return null;
+}
+function computeBudgetSummary(){
+  const rate = parseFloat(STATE.exchangeRate) || 0;
+  let totalEUR=0, usdTotal=0;
+  const porCidade={}, porCategoria={};
+  let fernando=0, leticia=0;
+  STATE.expenses.forEach(function(en){
+    if(en.currency==="USD"){ usdTotal += en.value; return; }
+    const eur = eurEquivalent(en, rate);
+    if(eur===null) return; // BRL sem câmbio configurado
+    totalEUR += eur;
+    porCidade[en.city] = (porCidade[en.city]||0) + eur;
+    porCategoria[en.category] = (porCategoria[en.category]||0) + eur;
+    if(en.payer==="Fernando") fernando += eur;
+    else if(en.payer==="Letícia") leticia += eur;
+    else { fernando += eur/2; leticia += eur/2; }
+  });
+  return {totalEUR:totalEUR, usdTotal:usdTotal, porCidade:porCidade, porCategoria:porCategoria,
+    fernando:fernando, leticia:leticia, saldoRestante: 3500 - totalEUR};
+}
+function renderExpenses(){
+  const tbody = $("#expenseTableBody"); if(!tbody) return;
+  tbody.innerHTML = "";
+  const sorted = STATE.expenses.slice().sort(function(a,b){ return a.date.localeCompare(b.date); });
+  sorted.forEach(function(en){
+    const sym = en.currency==="EUR" ? "€" : (en.currency==="BRL" ? "R$" : "$");
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td>"+formatDateBR(en.date)+"</td><td>"+escapeHtml(en.city)+"</td><td>"+escapeHtml(en.category)+"</td>"+
+      "<td>"+escapeHtml(en.description)+"</td><td>"+sym+" "+en.value.toLocaleString("pt-BR",{minimumFractionDigits:2})+"</td>"+
+      "<td>"+escapeHtml(en.payer)+"</td><td><button class=\"btn btn-sm btn-danger\" type=\"button\" data-act=\"del-expense\" data-id=\""+en.id+"\">excluir</button></td>";
+    tbody.appendChild(tr);
+  });
+  const hint = $("#expenseEmptyHint"); if(hint) hint.style.display = sorted.length ? "none" : "block";
+
+  const sum = computeBudgetSummary();
+  $("#sumTotalGasto").textContent = formatEUR(sum.totalEUR);
+  $("#sumSaldo").textContent = formatEUR(sum.saldoRestante);
+  $("#sumUsd").textContent = formatUSD(sum.usdTotal);
+  const dd = diasDecorridos();
+  $("#sumMediaDiaria").textContent = dd ? formatEUR(sum.totalEUR/dd) : "Viagem ainda não começou";
+  $("#sumFernando").textContent = formatEUR(sum.fernando);
+  $("#sumLeticia").textContent = formatEUR(sum.leticia);
+
+  function barsHtml(obj, total){
+    const entries = Object.entries(obj);
+    if(!entries.length) return '<p class="empty-hint">Sem lançamentos.</p>';
+    return entries.map(function(pair){
+      const pct = total ? Math.min(100, pair[1]/total*100) : 0;
+      return '<div class="bar-row"><span class="lbl">'+escapeHtml(pair[0])+'</span><div class="track"><div style="width:'+pct+'%"></div></div><span class="amt">'+formatEUR(pair[1])+'</span></div>';
+    }).join("");
+  }
+  $("#sumPorCidade").innerHTML = barsHtml(sum.porCidade, sum.totalEUR);
+  $("#sumPorCategoria").innerHTML = barsHtml(sum.porCategoria, sum.totalEUR);
+}
+function initExpenseForm(){
+  const form = $("#expenseForm");
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    const entry = {
+      id: uid(),
+      date: $("#expDate").value,
+      city: $("#expCity").value,
+      category: $("#expCategory").value,
+      payer: $("#expPayer").value,
+      description: $("#expDesc").value.trim(),
+      value: parseFloat($("#expValue").value),
+      currency: $("#expCurrency").value,
+      payment: $("#expPayment").value,
+      note: $("#expNote").value.trim()
+    };
+    if(!entry.date || !entry.description || isNaN(entry.value)){ showToast("Preencha ao menos data, descrição e valor."); return; }
+    STATE.expenses.push(entry);
+    saveState();
+    form.reset();
+    renderExpenses();
+    renderDashboard();
+    showToast("Despesa adicionada.");
+  });
+  const rateInput = $("#exchangeRateInput");
+  rateInput.value = STATE.exchangeRate || "";
+  rateInput.addEventListener("input", function(){
+    STATE.exchangeRate = rateInput.value;
+    saveState();
+    renderExpenses();
+    renderDashboard();
+  });
+}
+
+/* ---------- Painel inicial (dashboard) ---------- */
+function nextFrom(arr){
+  const now = Date.now();
+  const up = arr.filter(function(x){ return x.dt.getTime() >= now; }).sort(function(a,b){ return a.dt-b.dt; });
+  return up[0] || null;
+}
+function countPendingTasks(){
+  return $all("input[data-check]").filter(function(c){ return !c.checked; }).length;
+}
+function renderDashboard(){
+  const grid = $("#dashboardCards"); if(!grid) return;
+  const nf = nextFrom(FLIGHTS_INFO), nh = nextFrom(HOTELS_INFO), ne = nextFrom(EVENTS_INFO);
+  const sum = computeBudgetSummary();
+  const pendentes = countPendingTasks();
+  function box(title, body){ return '<div class="card"><h4>'+title+'</h4>'+body+'</div>'; }
+  grid.innerHTML =
+    box("✈️ Próximo voo", nf ? '<p style="font-weight:700;">'+nf.label+'</p><p style="font-size:12.5px;color:var(--text-muted);">'+nf.dt.toLocaleDateString("pt-BR")+'</p>' : '<p class="empty-hint">Nenhum voo futuro.</p>') +
+    box("🏨 Próxima hospedagem", nh ? '<p style="font-weight:700;">'+nh.label+'</p><p style="font-size:12.5px;color:var(--text-muted);">Check-in '+nh.dt.toLocaleDateString("pt-BR")+'</p>' : '<p class="empty-hint">—</p>') +
+    box("🎉 Próximo evento", ne ? '<p style="font-weight:700;">'+ne.label+'</p><p style="font-size:12.5px;color:var(--text-muted);">'+ne.dt.toLocaleDateString("pt-BR")+'</p>' : '<p class="empty-hint">—</p>') +
+    box("💶 Saldo restante", '<p style="font-family:var(--font-display); font-size:22px; color:var(--heading);">'+formatEUR(sum.saldoRestante)+'</p>') +
+    box("✅ Tarefas pendentes", '<p style="font-family:var(--font-display); font-size:22px; color:var(--heading);">'+pendentes+'</p><p style="font-size:12px;color:var(--text-muted);">Itens não marcados nos checklists.</p>');
+}
+function renderCountdownChip(){
+  const chip = $("#tripCountdownChip"); if(!chip) return;
+  const s = getTripStatus();
+  if(s.phase==="before") chip.textContent = "⏳ Faltam "+s.days+" dia"+(s.days===1?"":"s");
+  else if(s.phase==="during") chip.textContent = "📍 Dia "+s.day+" de 22";
+  else chip.textContent = "✅ Viagem concluída";
+}
+
+/* ---------- F. HOJE / PRÓXIMO COMPROMISSO ---------- */
+function goToday(){
+  showSection("sec-roteiro");
+  const s = getTripStatus();
+  const todayIso = new Date().toISOString().slice(0,10);
+  const card = document.querySelector('.day-card[data-date="'+todayIso+'"]');
+  if(card){ setTimeout(function(){ card.scrollIntoView({behavior:"smooth", block:"center"}); flash(card); }, 60); }
+  else if(s.phase==="before"){ showToast("A viagem ainda não começou — faltam "+s.days+" dia(s)."); }
+  else { showToast("Hoje está fora do período da viagem (23/07 a 13/08/2026)."); }
+}
+function goProximoCompromisso(){
+  const m = nextFrom(KEY_MOMENTS.filter(function(x){ return true; }));
+  if(!m){ showToast("Não há mais compromissos futuros cadastrados — viagem concluída! 🎉"); return; }
+  showSection(m.target);
+  if(m.anchor){ setTimeout(function(){ jumpTo(m.anchor); }, 80); }
+  showToast("Próximo: "+m.label+" — "+m.dt.toLocaleDateString("pt-BR"));
+}
+
+/* ---------- E. BUSCA INTERNA ---------- */
+let SEARCH_INDEX = [];
+function buildSearchIndex(){
+  const items = [];
+  $all(".view").forEach(function(view){
+    const sectionId = view.id, sectionLabel = view.dataset.navLabel;
+    $all(".card, .pass, .alert-card", view).forEach(function(el, i){
+      if(!el.id) el.id = sectionId+"-idx-"+i;
+      const text = el.textContent.replace(/\s+/g, " ").trim();
+      if(text.length < 3) return;
+      items.push({sectionId:sectionId, sectionLabel:sectionLabel, elId:el.id, text:text});
+    });
+  });
+  return items;
+}
+function normalizeSearch(s){ return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
+function onSearchInput(){
+  const q = $("#searchInput").value.trim();
+  const results = $("#searchResults");
+  if(q.length < 2){ results.classList.remove("show"); results.innerHTML=""; return; }
+  const nq = normalizeSearch(q);
+  const matches = SEARCH_INDEX.filter(function(it){ return normalizeSearch(it.text).indexOf(nq) !== -1; }).slice(0,12);
+  if(!matches.length){ results.innerHTML = '<div class="search-empty">Nenhum resultado encontrado.</div>'; results.classList.add("show"); return; }
+  results.innerHTML = matches.map(function(m){
+    const snip = m.text.slice(0,110) + (m.text.length>110 ? "…" : "");
+    return '<button type="button" class="search-result-item" data-act="goto-search" data-section="'+m.sectionId+'" data-el="'+m.elId+'"><b>'+m.sectionLabel+'</b>'+escapeHtml(snip)+'</button>';
+  }).join("");
+  results.classList.add("show");
+}
+
+/* ---------- G. DADOS DO APP ---------- */
+function openConfirmModal(title, msg, onConfirm){
+  const overlay = $("#modalOverlay"), box = $("#modalBox");
+  box.innerHTML = "<h3>"+title+"</h3><p style=\"font-size:14px; color:var(--text-muted);\">"+msg+"</p>"+
+    '<div class="modal-actions"><button class="btn" type="button" id="modalCancel">Cancelar</button>'+
+    '<button class="btn btn-danger" type="button" id="modalConfirm">Confirmar</button></div>';
+  overlay.classList.add("show");
+  $("#modalCancel").onclick = function(){ overlay.classList.remove("show"); };
+  $("#modalConfirm").onclick = function(){ overlay.classList.remove("show"); onConfirm(); };
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.classList.remove("show"); };
+}
+function exportJson(){
+  const blob = new Blob([JSON.stringify(STATE, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const now = new Date();
+  const fname = "eurotrip2026-dados-"+String(now.getDate()).padStart(2,"0")+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+now.getFullYear()+".json";
+  a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  showToast("Arquivo exportado.");
+}
+function importJsonFile(file){
+  const reader = new FileReader();
+  reader.onload = function(){
+    try{
+      const data = JSON.parse(reader.result);
+      if(typeof data !== "object" || data===null) throw new Error("formato inválido");
+      openConfirmModal("Importar dados", "Isso vai substituir os dados atuais salvos neste navegador pelos dados do arquivo. Deseja continuar?", function(){
+        STATE = Object.assign(defaultState(), data);
+        saveState();
+        location.reload();
+      });
+    }catch(err){ showToast("Arquivo inválido — verifique se é um JSON exportado por este app."); }
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- Delegação global de cliques ---------- */
+document.addEventListener("click", function(e){
+  const editBtn = e.target.closest('[data-act="edit-field"]');
+  if(editBtn){ openFieldEditor(editBtn.closest("[data-edit-field]")); return; }
+
+  const saveBtn = e.target.closest('[data-act="save-field"]');
+  if(saveBtn){
+    const wrap = saveBtn.closest("[data-edit-field]");
+    const input = wrap.querySelector(".edit-input");
+    const newVal = input.value.trim();
+    STATE.editableFields[wrap.dataset.editField] = newVal;
+    wrap.dataset.current = newVal;
+    saveState();
+    paintEditableField(wrap);
+    renderDashboard();
+    return;
+  }
+  const cancelBtn = e.target.closest('[data-act="cancel-field"]');
+  if(cancelBtn){ paintEditableField(cancelBtn.closest("[data-edit-field]")); return; }
+
+  const delBtn = e.target.closest('[data-act="del-expense"]');
+  if(delBtn){
+    const id = delBtn.dataset.id;
+    openConfirmModal("Excluir despesa", "Essa ação não pode ser desfeita. Deseja excluir este lançamento?", function(){
+      STATE.expenses = STATE.expenses.filter(function(x){ return x.id !== id; });
+      saveState(); renderExpenses(); renderDashboard();
+    });
+    return;
+  }
+  const searchBtn = e.target.closest('[data-act="goto-search"]');
+  if(searchBtn){
+    const sectionId = searchBtn.dataset.section, elId = searchBtn.dataset.el;
+    showSection(sectionId);
+    $("#searchInput").value = ""; $("#searchResults").classList.remove("show");
+    setTimeout(function(){ const el = document.getElementById(elId); if(el){ el.scrollIntoView({behavior:"smooth", block:"center"}); flash(el); } }, 80);
+    return;
+  }
+  if(!e.target.closest(".search-wrap")){ const r = $("#searchResults"); if(r) r.classList.remove("show"); }
+});
+document.addEventListener("keydown", function(e){
+  if(e.key === "Escape"){
+    $("#searchResults").classList.remove("show");
+    $("#modalOverlay").classList.remove("show");
+  }
+});
+
+/* ---------- Tema e modo offline ---------- */
+function applyTheme(){
+  document.documentElement.setAttribute("data-theme", STATE.theme);
+  const btn = $("#themeToggleBtn");
+  if(btn) btn.innerHTML = (STATE.theme === "dark" ? "☀️ " : "🌙 ") + '<span id="themeToggleLabel">'+(STATE.theme==="dark"?"Modo claro":"Modo escuro")+'</span>';
+}
+function updateOfflineBadge(){
+  const show = !navigator.onLine;
+  const b1 = $("#offlineBadge"); if(b1) b1.classList.toggle("show", show);
+}
+
+/* ---------- H. INICIALIZAÇÃO ---------- */
+document.addEventListener("DOMContentLoaded", function(){
+  loadState();
+  buildNav();
+  applyTheme();
+  renderRouteStrip();
+  renderItinerary();
+  renderCityNotes();
+  hydrateChecklists();
+  renderEditableFields();
+  hydrateNotes();
+  initExpenseForm();
+  renderExpenses();
+  renderDashboard();
+  renderCountdownChip();
+  showSection("sec-inicio");
+
+  SEARCH_INDEX = buildSearchIndex();
+  $("#searchInput").addEventListener("input", onSearchInput);
+
+  $("#btnHoje").addEventListener("click", goToday);
+  $("#btnProximo").addEventListener("click", goProximoCompromisso);
+  $("#themeToggleBtn").addEventListener("click", function(){
+    STATE.theme = STATE.theme === "dark" ? "light" : "dark";
+    saveState(); applyTheme();
+  });
+
+  $("#btnPrintRoteiro").addEventListener("click", function(){
+    document.body.classList.add("printing-roteiro");
+    window.print();
+  });
+  window.addEventListener("afterprint", function(){ document.body.classList.remove("printing-roteiro"); });
+
+  $("#editModeBtn").addEventListener("click", toggleEditMode);
+
+  $("#btnExportJson").addEventListener("click", exportJson);
+  $("#btnImportJsonTrigger").addEventListener("click", function(){ $("#btnImportJson").click(); });
+  $("#btnImportJson").addEventListener("change", function(e){
+    const file = e.target.files[0]; if(file) importJsonFile(file);
+    e.target.value = "";
+  });
+  $("#btnRestoreDefaults").addEventListener("click", function(){
+    openConfirmModal("Restaurar dados iniciais", "Isso vai apagar despesas, anotações, checklists e campos editados salvos neste navegador. Essa ação não pode ser desfeita. Deseja continuar?", function(){
+      try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+      location.reload();
+    });
+  });
+
+  const filterCidade = $("#filterCidade"), filterData = $("#filterData");
+  filterCidade.addEventListener("change", function(){
+    const val = filterCidade.value;
+    $all("#itineraryList .day-card").forEach(function(c){ c.style.display = (!val || c.dataset.region===val) ? "" : "none"; });
+  });
+  filterData.addEventListener("change", function(){
+    if(!filterData.value) return;
+    const card = document.querySelector('.day-card[data-date="'+filterData.value+'"]');
+    if(card){ card.style.display=""; card.scrollIntoView({behavior:"smooth", block:"center"}); flash(card); }
+    else { showToast("Essa data está fora do período da viagem (23/07 a 13/08/2026)."); }
+  });
+  $("#btnLimparFiltro").addEventListener("click", function(){
+    filterCidade.value = ""; filterData.value = "";
+    $all("#itineraryList .day-card").forEach(function(c){ c.style.display=""; });
+  });
+
+  updateOfflineBadge();
+  window.addEventListener("online", updateOfflineBadge);
+  window.addEventListener("offline", updateOfflineBadge);
+
+  setInterval(function(){ renderCountdownChip(); }, 60000);
+
+  if(!STORAGE_OK){ showToast("Este navegador não permite salvar dados localmente neste modo. Use \"Exportar JSON\" com frequência."); }
+});
+</script>
+</body>
+</html>
